@@ -22,8 +22,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>PACKING LIST</h1>
-        <p>Transfer Order: {{ $order->order_number }}</p>
+        <h1>TRANSFER ORDER</h1>
+        <p>Order Number: {{ $order->order_number }}</p>
     </div>
 
     <div class="info-grid">
@@ -83,7 +83,7 @@
     </table>
 
     <div class="footer">
-        <p>Generated on {{ now()->format('d M Y H:i:s') }} | Packing List System</p>
+        <p>Generated on {{ now()->format('d M Y H:i:s') }} | Restaurant Operation System</p>
     </div>
 </body>
 </html>

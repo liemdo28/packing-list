@@ -1,7 +1,7 @@
 {
-    "name": "bakudan/packing-list",
+    "name": "bakudan/restaurant-operation-system",
     "type": "project",
-    "description": "Packing List Internal Transfer Management System",
+    "description": "Restaurant Operation System - ERP backend for inventory, orders, invoices, packing, and cost management",
     "require": {
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "^2.0",

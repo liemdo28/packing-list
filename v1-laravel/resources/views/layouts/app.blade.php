@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'Packing List')</title>
+    <title>@yield('title', 'Restaurant Operation System')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="h-full" x-data="{ sidebarOpen: false }">
@@ -11,7 +11,7 @@
     <div x-show="sidebarOpen" class="fixed inset-0 z-40 bg-gray-600/75 lg:hidden" @click="sidebarOpen=false"></div>
     <div :class="sidebarOpen?'translate-x-0':'-translate-x-full'" class="fixed inset-y-0 left-0 z-50 w-64 bg-primary-800 transform transition-transform lg:translate-x-0 lg:static">
         <div class="flex items-center justify-between h-16 px-4 bg-primary-900">
-            <span class="text-xl font-bold text-white">Packing List</span>
+            <span class="text-xl font-bold text-white">Restaurant Operation System</span>
             <button @click="sidebarOpen=false" class="lg:hidden text-white">&times;</button>
         </div>
         <nav class="mt-4 px-2 space-y-1">

@@ -1,5 +1,5 @@
 # Software Requirements Specification (SRS)
-# Packing List Web App
+# Restaurant Operation System
 
 **Version:** 1.0
 **Date:** 2026-03-31
@@ -388,7 +388,7 @@ items  1──N invoice_lines
 
 ## 4. Order Number Format
 `PL-YYYYMMDD-NNN`
-- PL: Packing List prefix
+- PL: Transfer Order prefix
 - YYYYMMDD: Date created
 - NNN: Sequential number per day (001, 002, ...)
 

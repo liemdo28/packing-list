@@ -49,7 +49,7 @@ export default function Sidebar({ open, onClose }) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600">
             <ReceiptPercentIcon className="h-5 w-5 text-white" />
           </div>
-          <span className="text-lg font-bold text-gray-900">Packing List</span>
+          <span className="text-lg font-bold text-gray-900">Restaurant Operation System</span>
         </div>
         <button onClick={onClose} className="lg:hidden rounded-lg p-1 text-gray-400 hover:text-gray-600">
           <XMarkIcon className="h-6 w-6" />
@@ -64,7 +64,7 @@ export default function Sidebar({ open, onClose }) {
         ))}
       </nav>
       <div className="border-t border-gray-200 px-4 py-3">
-        <p className="text-xs text-gray-400">Packing List v2.0</p>
+        <p className="text-xs text-gray-400">Restaurant Operation System v2.0</p>
       </div>
     </div>
   );

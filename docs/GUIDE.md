@@ -1,4 +1,4 @@
-# Packing List -- Complete Guide
+# Restaurant Operation System -- Complete Guide
 
 **Version:** 1.0
 **Last Updated:** April 2026
@@ -24,9 +24,9 @@
 
 ## 1. Introduction
 
-### What is Packing List?
+### What is the Restaurant Operation System?
 
-Packing List is an internal web application designed to manage stock transfers between
+Restaurant Operation System is an internal web application designed to manage stock transfers between
 three retail stores: **B1**, **B2**, and **B3**. It replaces manual spreadsheet-based
 tracking with a structured digital workflow that covers order creation, shipment,
 receiving, and financial reconciliation.
@@ -54,13 +54,13 @@ receiving, and financial reconciliation.
 
 ### Architecture
 
-The Packing List application is available in two independent versions. Both share the
+The Restaurant Operation System is available in two independent versions. Both share the
 same database schema, business logic, and user interface design. Choose the version that
 best fits your team's technology stack.
 
 ```
 +-------------------------------------------------+
-|              Packing List Application            |
+|          Restaurant Operation System             |
 +-------------------------------------------------+
 |                                                  |
 |   V1 - Laravel (Full-Stack)                      |
@@ -743,11 +743,11 @@ accounts use the same password.
 
 | Email                       | Password   | Role       | Store | Description          |
 |-----------------------------|------------|------------|-------|----------------------|
-| admin@packinglist.com       | password   | Admin      | --    | Full system access   |
-| b1@packinglist.com          | password   | B1         | B1    | Store B1 manager     |
-| b2@packinglist.com          | password   | B2         | B2    | Store B2 manager     |
-| b3@packinglist.com          | password   | B3         | B3    | Store B3 manager     |
-| accountant@packinglist.com  | password   | Accountant | --    | Financial oversight  |
+| admin@restaurant.com        | password   | Admin      | --    | Full system access   |
+| b1@restaurant.com           | password   | B1         | B1    | Store B1 manager     |
+| b2@restaurant.com           | password   | B2         | B2    | Store B2 manager     |
+| b3@restaurant.com           | password   | B3         | B3    | Store B3 manager     |
+| accountant@restaurant.com   | password   | Accountant | --    | Financial oversight  |
 
 > **Important:** Change all passwords before deploying to a production environment.
 
@@ -958,7 +958,7 @@ All API endpoints are prefixed with `/api`. Authentication is via JWT tokens sen
   "user": {
     "id": 1,
     "name": "Admin",
-    "email": "admin@packinglist.com",
+    "email": "admin@restaurant.com",
     "role": "admin",
     "store_id": null
   }

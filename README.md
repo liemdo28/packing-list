@@ -312,11 +312,11 @@ PL-YYYYMMDD-NNN
 
 | Email | Password | Role | Store |
 |-------|----------|------|-------|
-| `admin@packinglist.com` | `password` | admin | — |
-| `b1@packinglist.com` | `password` | b1 | B1 |
-| `b2@packinglist.com` | `password` | b2 | B2 |
-| `b3@packinglist.com` | `password` | b3 | B3 |
-| `accountant@packinglist.com` | `password` | accountant | — |
+| `admin@restaurant.com` | `password` | admin | — |
+| `b1@restaurant.com` | `password` | b1 | B1 |
+| `b2@restaurant.com` | `password` | b2 | B2 |
+| `b3@restaurant.com` | `password` | b3 | B3 |
+| `accountant@restaurant.com` | `password` | accountant | — |
 
 > ⚠️ All test passwords are `password` — **DO NOT use on production!**
 

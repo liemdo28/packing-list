@@ -1,7 +1,7 @@
 {
-  "name": "packing-list-server",
+  "name": "restaurant-operation-system-server",
   "version": "1.0.0",
-  "description": "Packing List - Store Transfer Management API",
+  "description": "Restaurant Operation System - Store Transfer Management API",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

@@ -1,5 +1,5 @@
 # Product Requirements Document (PRD)
-# Packing List Web App
+# Restaurant Operation System
 
 **Version:** 1.0
 **Date:** 2026-03-31
@@ -11,7 +11,7 @@
 ## 1. Executive Summary
 
 ### 1.1 Product Overview
-Packing List is a responsive web application designed to manage internal product transfers between three stores (B1, B2, B3). The app streamlines the order workflow from creation to completion, provides real-time notifications, and generates financial summaries for the Accountant to perform end-of-month reconciliation.
+Restaurant Operation System is a responsive web application designed to manage internal product transfers between three stores (B1, B2, B3). The app streamlines the order workflow from creation to completion, provides real-time notifications, and generates financial summaries for the Accountant to perform end-of-month reconciliation.
 
 ### 1.2 Business Problem
 Currently, inter-store transfers are tracked manually (paper/spreadsheet), leading to:

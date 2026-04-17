@@ -1,6 +1,6 @@
 <?php
 /**
- * Packing List - Load Simulation Test
+ * Restaurant Operation System - Load Simulation Test
  *
  * Standalone PHP script (no Laravel, no database).
  * Simulates 500 virtual testers x 100 loops = 50,000 operations.

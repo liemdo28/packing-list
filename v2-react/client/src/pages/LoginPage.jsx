@@ -35,8 +35,8 @@ export default function LoginPage() {
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 shadow-lg">
               <ReceiptPercentIcon className="h-8 w-8 text-white" />
             </div>
-            <h2 className="mt-4 text-2xl font-bold text-gray-900">Packing List</h2>
-            <p className="mt-1 text-sm text-gray-500">Store Transfer Management System</p>
+            <h2 className="mt-4 text-2xl font-bold text-gray-900">Restaurant Operation System</h2>
+            <p className="mt-1 text-sm text-gray-500">Internal Store Transfer Management</p>
           </div>
 
           {error && <Alert type="error" message={error} onClose={() => setError('')} />}

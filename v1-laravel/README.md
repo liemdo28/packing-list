@@ -1,6 +1,6 @@
-# Packing List - Laravel Version
+# Restaurant Operation System - Laravel Version
 
-Internal store transfer management system built with Laravel 11 + Blade + Tailwind CSS.
+Internal store transfer management system built with Laravel 11 + Inertia.js + React + Tailwind CSS.
 
 ## Prerequisites
 
@@ -58,11 +58,11 @@ Visit: http://localhost:8000
 
 | Email | Password | Role | Store |
 |---|---|---|---|
-| admin@packinglist.com | password | Admin | - |
-| b1@packinglist.com | password | B1 | Store B1 |
-| b2@packinglist.com | password | B2 | Store B2 |
-| b3@packinglist.com | password | B3 | Store B3 |
-| accountant@packinglist.com | password | Accountant | - |
+| admin@restaurant.com | password | Admin | - |
+| b1@restaurant.com | password | B1 | Store B1 |
+| b2@restaurant.com | password | B2 | Store B2 |
+| b3@restaurant.com | password | B3 | Store B3 |
+| accountant@restaurant.com | password | Accountant | - |
 
 ## Transfer Rules
 
@@ -120,7 +120,7 @@ php artisan view:cache
 ## Tech Stack
 
 - **Backend:** Laravel 11, PHP 8.2
-- **Frontend:** Blade, Tailwind CSS 3, Alpine.js 3
+- **Frontend:** Inertia.js, React 18, Tailwind CSS 3
 - **Database:** MySQL 8.0
 - **Build:** Vite 5
 - **Export:** PhpSpreadsheet (Excel), DomPDF (PDF)

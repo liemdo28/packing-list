@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Login - Packing List</title>
+    <title>Login - Restaurant Operation System</title>
     @vite(['resources/css/app.css'])
 </head>
 <body class="h-full">
 <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 class="mt-6 text-center text-3xl font-bold text-gray-900">Packing List</h2>
+        <h2 class="mt-6 text-center text-3xl font-bold text-gray-900">Restaurant Operation System</h2>
         <p class="mt-2 text-center text-sm text-gray-600">Sign in to your account</p>
     </div>
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -40,8 +40,8 @@
             <div class="mt-6">
                 <p class="text-xs text-gray-500 text-center">Test accounts:</p>
                 <div class="mt-2 text-xs text-gray-500 space-y-1">
-                    <p>admin@packinglist.com / b1@packinglist.com / b2@packinglist.com</p>
-                    <p>b3@packinglist.com / accountant@packinglist.com</p>
+                    <p>admin@restaurant.com / b1@restaurant.com / b2@restaurant.com</p>
+                    <p>b3@restaurant.com / accountant@restaurant.com</p>
                     <p>Password: <code class="bg-gray-100 px-1 rounded">password</code></p>
                 </div>
             </div>

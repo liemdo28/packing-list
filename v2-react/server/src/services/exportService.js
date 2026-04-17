@@ -4,7 +4,7 @@ const PDFDocument = require('pdfkit');
 class ExportService {
   static async generateExcel(summaryData) {
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'Packing List System';
+    workbook.creator = 'Restaurant Operation System';
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet('Summary');
