@@ -2,8 +2,13 @@
 
 namespace App\Providers;
 
-use App\Models\{Order, OrderLine, Item, Store, Invoice, PriceMaster};
-use App\Observers\AuditObserver;
+use App\Domains\Order\Models\Order;
+use App\Domains\Order\Models\OrderLine;
+use App\Domains\Inventory\Models\Item;
+use App\Domains\User\Models\Store;
+use App\Domains\Invoice\Models\Invoice;
+use App\Domains\Inventory\Models\PriceMaster;
+use App\Domains\Audit\Observers\AuditObserver;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 

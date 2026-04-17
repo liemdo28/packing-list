@@ -7,33 +7,33 @@ import LoadingSpinner from './components/LoadingSpinner';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 
-import StoreListPage from './pages/stores/StoreListPage';
-import StoreFormPage from './pages/stores/StoreFormPage';
+import StoreListPage from './domains/user/pages/StoreListPage';
+import StoreFormPage from './domains/user/pages/StoreFormPage';
 
-import ItemListPage from './pages/items/ItemListPage';
-import ItemFormPage from './pages/items/ItemFormPage';
+import ItemListPage from './domains/inventory/pages/ItemListPage';
+import ItemFormPage from './domains/inventory/pages/ItemFormPage';
 
-import PriceListPage from './pages/prices/PriceListPage';
-import PriceFormPage from './pages/prices/PriceFormPage';
-import PriceHistoryPage from './pages/prices/PriceHistoryPage';
+import PriceListPage from './domains/inventory/pages/PriceListPage';
+import PriceFormPage from './domains/inventory/pages/PriceFormPage';
+import PriceHistoryPage from './domains/inventory/pages/PriceHistoryPage';
 
-import OrderListPage from './pages/orders/OrderListPage';
-import OrderCreatePage from './pages/orders/OrderCreatePage';
-import OrderDetailPage from './pages/orders/OrderDetailPage';
+import OrderListPage from './domains/order/pages/OrderListPage';
+import OrderCreatePage from './domains/order/pages/OrderCreatePage';
+import OrderDetailPage from './domains/order/pages/OrderDetailPage';
 
-import NotificationListPage from './pages/notifications/NotificationListPage';
+import NotificationListPage from './domains/notification/pages/NotificationListPage';
 
 import SummaryPage from './pages/summary/SummaryPage';
 
-import InvoiceListPage from './pages/invoices/InvoiceListPage';
-import InvoiceFormPage from './pages/invoices/InvoiceFormPage';
-import InvoiceDetailPage from './pages/invoices/InvoiceDetailPage';
-import InvoiceReconcilePage from './pages/invoices/InvoiceReconcilePage';
+import InvoiceListPage from './domains/invoice/pages/InvoiceListPage';
+import InvoiceFormPage from './domains/invoice/pages/InvoiceFormPage';
+import InvoiceDetailPage from './domains/invoice/pages/InvoiceDetailPage';
+import InvoiceReconcilePage from './domains/invoice/pages/InvoiceReconcilePage';
 
 import AuditLogPage from './pages/audit-logs/AuditLogPage';
 
-import UserListPage from './pages/users/UserListPage';
-import UserFormPage from './pages/users/UserFormPage';
+import UserListPage from './domains/user/pages/UserListPage';
+import UserFormPage from './domains/user/pages/UserFormPage';
 
 export default function App() {
   const { loading } = useAuth();

@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Order, OrderLine, Item, PriceMaster, Store, sequelize } = require('../models');
+const { Order, OrderLine, Item, PriceMaster, Store, sequelize } = require('../../models');
 const { isValidTransfer, canTransitionTo, ORDER_STATUSES } = require('../config/app');
 const NotificationService = require('./notificationService');
 

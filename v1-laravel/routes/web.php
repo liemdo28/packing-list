@@ -1,21 +1,21 @@
 <?php
 
-use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\StoreController;
-use App\Http\Controllers\ItemController;
-use App\Http\Controllers\PriceMasterController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\SummaryController;
-use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\AuditLogController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\CostEngineController;
-use App\Http\Controllers\RawMaterialController;
-use App\Http\Controllers\InvoiceScanController;
-use App\Http\Controllers\VendorController;
-use App\Http\Controllers\ExportController;
+use App\Domains\User\Http\Controllers\LoginController;
+use App\Domains\Dashboard\Http\Controllers\DashboardController;
+use App\Domains\User\Http\Controllers\StoreController;
+use App\Domains\Inventory\Http\Controllers\ItemController;
+use App\Domains\Inventory\Http\Controllers\PriceMasterController;
+use App\Domains\Order\Http\Controllers\OrderController;
+use App\Domains\Notification\Http\Controllers\NotificationController;
+use App\Domains\Report\Http\Controllers\SummaryController;
+use App\Domains\Invoice\Http\Controllers\InvoiceController;
+use App\Domains\Audit\Http\Controllers\AuditLogController;
+use App\Domains\User\Http\Controllers\UserController;
+use App\Domains\CostEngine\Http\Controllers\CostEngineController;
+use App\Domains\CostEngine\Http\Controllers\RawMaterialController;
+use App\Domains\InvoiceScan\Http\Controllers\InvoiceScanController;
+use App\Domains\InvoiceScan\Http\Controllers\VendorController;
+use App\Domains\Report\Http\Controllers\ExportController;
 use Illuminate\Support\Facades\Route;
 
 // Auth

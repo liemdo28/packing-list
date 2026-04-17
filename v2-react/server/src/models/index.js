@@ -1,15 +1,15 @@
+// Central barrel — imports from domain model locations
 const sequelize = require('../config/database');
-const Store = require('./Store');
-const User = require('./User');
-const Item = require('./Item');
-const PriceMaster = require('./PriceMaster');
-const Order = require('./Order');
-const OrderLine = require('./OrderLine');
-const Notification = require('./Notification');
-const MonthlySummary = require('./MonthlySummary');
-const Invoice = require('./Invoice');
-const InvoiceLine = require('./InvoiceLine');
-const AuditLog = require('./AuditLog');
+const Store = require('./domains/user/models/Store');
+const User = require('./domains/user/models/User');
+const Item = require('./domains/inventory/models/Item');
+const PriceMaster = require('./domains/inventory/models/PriceMaster');
+const Order = require('./domains/order/models/Order');
+const OrderLine = require('./domains/order/models/OrderLine');
+const Notification = require('./domains/notification/models/Notification');
+const Invoice = require('./domains/invoice/models/Invoice');
+const InvoiceLine = require('./domains/invoice/models/InvoiceLine');
+const AuditLog = require('./domains/audit/models/AuditLog');
 
 // User <-> Store
 Store.hasMany(User, { foreignKey: 'store_id', as: 'users' });
@@ -36,11 +36,6 @@ OrderLine.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
 User.hasMany(Notification, { foreignKey: 'user_id', as: 'notifications' });
 Notification.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-// MonthlySummary <-> Store
-MonthlySummary.belongsTo(Store, { foreignKey: 'from_store_id', as: 'fromStore' });
-MonthlySummary.belongsTo(Store, { foreignKey: 'to_store_id', as: 'toStore' });
-MonthlySummary.belongsTo(User, { foreignKey: 'reconciled_by', as: 'reconciler' });
-
 // Invoice <-> Store
 Invoice.belongsTo(Store, { foreignKey: 'paid_by_store_id', as: 'paidByStore' });
 Invoice.belongsTo(Store, { foreignKey: 'on_behalf_of_store_id', as: 'onBehalfOfStore' });
@@ -62,7 +57,6 @@ module.exports = {
   Order,
   OrderLine,
   Notification,
-  MonthlySummary,
   Invoice,
   InvoiceLine,
   AuditLog,

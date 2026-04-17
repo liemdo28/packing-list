@@ -1,4 +1,4 @@
-const { Notification, User, Store } = require('../models');
+const { Notification, User, Store } = require('../../models');
 
 class NotificationService {
   static async createNotification({ userId, title, message, type = 'order', referenceType = null, referenceId = null }) {
