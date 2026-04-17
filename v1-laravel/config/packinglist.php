@@ -44,4 +44,17 @@ return [
     'units' => ['kg', 'pcs', 'box', 'bottle', 'can', 'pack', 'bag', 'carton', 'block'],
 
     'categories' => ['Beverage', 'Food', 'Supply'],
+
+    'packing_statuses' => [
+        'draft'  => 'Draft',
+        'packing'=> 'Packing',
+        'packed' => 'Packed',
+        'shipped'=> 'Shipped',
+    ],
+
+    'packing_types' => [
+        'shipment' => 'Shipment',
+        'transfer' => 'Transfer',
+        'event'    => 'Event',
+    ],
 ];

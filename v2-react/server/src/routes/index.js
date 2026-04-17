@@ -13,5 +13,6 @@ router.use('/audit-logs', require('../domains/audit/routes/auditLogs'));
 router.use('/users', require('../domains/user/routes/users'));
 router.use('/dashboard', require('../domains/dashboard/routes/dashboard'));
 router.use('/export', require('../domains/report/routes/export'));
+router.use('/packing', require('../domains/packing/routes/packing'));
 
 module.exports = router;

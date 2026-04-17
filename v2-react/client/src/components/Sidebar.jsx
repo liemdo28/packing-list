@@ -12,6 +12,7 @@ import {
   ClipboardDocumentCheckIcon,
   XMarkIcon,
   ReceiptPercentIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../hooks/useAuth';
 
@@ -26,6 +27,7 @@ const allNavItems = [
   { name: 'Notifications', href: '/notifications', icon: BellIcon, roles: ['admin', 'b1', 'b2', 'b3', 'accountant'] },
   { name: 'Users', href: '/users', icon: UsersIcon, roles: ['admin'] },
   { name: 'Audit Logs', href: '/audit-logs', icon: ClipboardDocumentCheckIcon, roles: ['admin', 'accountant'] },
+  { name: 'Packing', href: '/packing', icon: ArchiveBoxIcon, roles: ['admin', 'b1', 'b2', 'b3'] },
 ];
 
 export default function Sidebar({ open, onClose }) {

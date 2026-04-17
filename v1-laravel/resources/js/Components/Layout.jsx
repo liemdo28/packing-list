@@ -21,6 +21,7 @@ import {
     BeakerIcon,
     DocumentMagnifyingGlassIcon,
     TruckIcon,
+    ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 
 const navLinks = [
@@ -38,6 +39,7 @@ const navLinks = [
     { href: '/invoice-scan', label: 'Invoice Scan', icon: DocumentMagnifyingGlassIcon, roles: ['admin'] },
     { href: '/vendors', label: 'Vendors', icon: TruckIcon, roles: ['admin'] },
     { href: '/audit-logs', label: 'Audit Logs', icon: ClipboardDocumentCheckIcon, roles: ['admin'] },
+    { href: '/packing', label: 'Packing', icon: ArchiveBoxIcon, roles: ['admin'] },
 ];
 
 const roleBadgeColors = {

@@ -16,6 +16,7 @@ use App\Domains\CostEngine\Http\Controllers\RawMaterialController;
 use App\Domains\InvoiceScan\Http\Controllers\InvoiceScanController;
 use App\Domains\InvoiceScan\Http\Controllers\VendorController;
 use App\Domains\Report\Http\Controllers\ExportController;
+use App\Domains\Packing\Http\Controllers\PackingController;
 use Illuminate\Support\Facades\Route;
 
 // Auth
@@ -106,6 +107,26 @@ Route::middleware('auth')->group(function () {
 
         // Vendors
         Route::resource('vendors', VendorController::class)->except('show', 'destroy');
+
+        // Packing
+        Route::resource('packing', PackingController::class)->except(['show', 'destroy']);
+        Route::get('/packing/{packing}', [PackingController::class, 'show'])->name('packing.show');
+        Route::post('/packing/{packing}/items', [PackingController::class, 'addItem'])->name('packing.items.add');
+        Route::put('/packing/{packing}/items/{item}', [PackingController::class, 'updateItem'])->name('packing.items.update');
+        Route::delete('/packing/{packing}/items/{item}', [PackingController::class, 'removeItem'])->name('packing.items.remove');
+        Route::post('/packing/{packing}/mark-all-packed', [PackingController::class, 'markAllPacked'])->name('packing.markAllPacked');
+        Route::post('/packing/{packing}/ship', [PackingController::class, 'markShipped'])->name('packing.ship');
+        Route::get('/packing/{packing}/checklist-pdf', [PackingController::class, 'checklistPdf'])->name('packing.checklistPdf');
+
+        // Packing Templates
+        Route::prefix('packing/templates')->name('packing.templates.')->group(function () {
+            Route::get('/', [PackingController::class, 'templateIndex'])->name('index');
+            Route::get('/create', [PackingController::class, 'templateCreate'])->name('create');
+            Route::post('/', [PackingController::class, 'templateStore'])->name('store');
+            Route::get('/{template}/edit', [PackingController::class, 'templateEdit'])->name('edit');
+            Route::put('/{template}', [PackingController::class, 'templateUpdate'])->name('update');
+            Route::delete('/{template}', [PackingController::class, 'templateDestroy'])->name('destroy');
+        });
     });
 
     // Export routes
