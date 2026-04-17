@@ -5,8 +5,11 @@ v2-react/node_modules/
 
 # Environment files
 v1-laravel/.env
-v2-react/.env
 v1-laravel/.env.example
+v2-react/client/.env
+v2-react/client/.env.example
+v2-react/server/.env
+v2-react/server/.env.example
 
 # Laravel
 v1-laravel/storage/logs/
