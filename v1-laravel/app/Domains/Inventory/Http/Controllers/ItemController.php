@@ -3,12 +3,15 @@
 namespace App\Domains\Inventory\Http\Controllers;
 
 use App\Domains\Inventory\Models\Item;
+use App\Domains\Inventory\Services\InventoryService;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ItemController extends Controller
 {
+    public function __construct(protected InventoryService $inventoryService) {}
+
     public function index(Request $request)
     {
         $query = Item::query();
@@ -42,7 +45,7 @@ class ItemController extends Controller
             'category' => 'nullable|string|max:50',
         ]);
 
-        Item::create($data);
+        $this->inventoryService->createItem($data);
         return redirect()->route('items.index')->with('success', 'Item created successfully.');
     }
 
@@ -63,13 +66,13 @@ class ItemController extends Controller
             'active' => 'boolean',
         ]);
 
-        $item->update($data);
+        $this->inventoryService->updateItem($item, $data);
         return redirect()->route('items.index')->with('success', 'Item updated successfully.');
     }
 
     public function destroy(Item $item)
     {
-        $item->update(['active' => false]);
+        $this->inventoryService->deactivateItem($item);
         return redirect()->route('items.index')->with('success', 'Item deactivated.');
     }
 }
