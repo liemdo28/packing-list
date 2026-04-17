@@ -1,6 +1,7 @@
-# Packing List — Internal Inter-Store Transfer Management System
+# Restaurant Operation System
 
-> **Document version:** 1.0 — 2026-04-14
+> **Formerly:** Packing List
+> **Document version:** 2.0 — 2026-04-17
 > **Development team:** Bakudan Team
 > **Language:** English
 
@@ -25,11 +26,12 @@
 
 ## 1. Project Overview
 
-**Packing List** is a web application for managing internal goods transfers between three retail locations (B1, B2, B3) in the restaurant supply chain.
+**Restaurant Operation System** (formerly "Packing List") is a web application for managing internal goods transfers and restaurant operations across three retail locations (B1, B2, B3) in the restaurant supply chain.
 
 | Attribute | Detail |
 |-----------|--------|
-| **Project name** | Packing List |
+| **Project name** | Restaurant Operation System |
+| **Former name** | Packing List |
 | **Development team** | Bakudan Team |
 | **Date created** | 2026-03-31 |
 | **Database** | MySQL 8.0 |
@@ -71,42 +73,59 @@ Express.js API Server
 ## 3. Project Structure
 
 ```
-packing-list/
+restaurant-operation-system/
 ├── docker-compose.yml          ← MySQL container
 ├── README.md                   ← (this file)
 │
 ├── v1-laravel/                 ← Version 1: Laravel 11 (Monolith)
-│   ├── app/Http/Controllers/   ← OrderController, StoreController...
+│   ├── app/Domains/            ← Domain-based architecture
+│   │   ├── Audit/              ← AuditLog model, service, observer
+│   │   ├── CostEngine/         ← Raw materials, recipes, cost engine
+│   │   ├── Dashboard/
+│   │   ├── Inventory/           ← Items, PriceMaster, InventoryService
+│   │   ├── Invoice/             ← Invoice, InvoiceLine, InvoiceService
+│   │   ├── InvoiceScan/         ← Vendors, scan jobs, mapping
+│   │   ├── Notification/        ← Notification model + service
+│   │   ├── Order/              ← Order, OrderLine, OrderService
+│   │   ├── Packing/            ← PackingJob, PackingItem, PackingService
+│   │   ├── Report/             ← SummaryService, ExportService
+│   │   └── User/               ← User, Store models + controllers
 │   ├── config/packinglist.php  ← Transfer rules, statuses, roles
-│   ├── database/migrations/    ← 12 migration files
-│   ├── routes/web.php          ← All routes
-│   ├── composer.json
-│   ├── package.json
-│   └── .env.example
+│   ├── database/migrations/    ← 15 migration files (incl. packing tables)
+│   └── routes/web.php
 │
 ├── v2-react/                  ← Version 2: React + Express (SPA)
 │   ├── client/src/
-│   │   ├── api/              ← Axios API calls
-│   │   ├── components/       ← Layout, Sidebar, Modal, DataTable...
-│   │   ├── contexts/         ← Auth context
-│   │   ├── pages/           ← Dashboard, Orders, Items, Stores...
-│   │   ├── hooks/
-│   │   └── utils/
+│   │   ├── domains/           ← Domain-organized pages
+│   │   │   ├── inventory/
+│   │   │   ├── invoice/
+│   │   │   ├── notification/
+│   │   │   ├── order/
+│   │   │   ├── packing/        ← Packing pages
+│   │   │   └── user/
+│   │   ├── components/
+│   │   ├── api/
+│   │   └── hooks/
 │   └── server/src/
-│       ├── controllers/       ← 11 controllers
-│       ├── models/            ← 10 Sequelize models
-│       ├── routes/            ← 11 route files
+│       ├── domains/            ← Domain-organized code
+│       │   ├── inventory/
+│       │   ├── invoice/
+│       │   ├── order/
+│       │   ├── packing/        ← Packing controller + models
+│       │   └── ...
+│       ├── controllers/
+│       ├── models/             ← Sequelize models + associations
+│       ├── routes/
 │       ├── middleware/
-│       ├── services/
-│       └── index.js           ← Entry point (port 3001)
+│       └── services/            ← orderService, invoiceService, etc.
 │
 ├── docs/
-│   ├── SRS.md                 ← Database schema, API spec, test accounts
-│   ├── PRD.md                 ← Business logic, user stories
-│   └── GUIDE.md               ← Detailed guide for v2-react
+│   ├── SRS.md
+│   ├── PRD.md
+│   └── GUIDE.md
 │
 └── tests/
-    └── simulation.js          ← Load simulation (500 users × 100 ops)
+    └── simulation.js
 ```
 
 ---
@@ -223,6 +242,7 @@ Draft → Submitted → Processing → Ready to Ship → In Transit
 - ✅ Excel Export
 - ✅ Four Season Invoice Reconciliation
 - ✅ Audit Log CRUD (Admin)
+- ✅ **Packing System** — Create/manange packing jobs, track item packing status, generate checklists, ship integration
 
 ### ⏳ Extended (Next Phase)
 
@@ -248,11 +268,15 @@ stores 1──N users
 stores 1──N orders (from_store / to_store)
 items  1──N price_master
 items  1──N order_lines
+items  1──N packing_items
 orders 1──N order_lines
 orders 1──N notifications
+orders 1──N packing_jobs
 users  1──N notifications
 users  1──N audit_logs
 invoices 1──N invoice_lines
+packing_jobs 1──N packing_items
+packing_templates 1──N packing_template_items
 ```
 
 ### Core Tables
@@ -270,6 +294,10 @@ invoices 1──N invoice_lines
 | `invoices` | Four Season invoices |
 | `invoice_lines` | Invoice line items |
 | `audit_logs` | Operation audit trail |
+| `packing_jobs` | Packing jobs (shipment/transfer/event) |
+| `packing_items` | Items within a packing job |
+| `packing_templates` | Reusable packing templates |
+| `packing_template_items` | Items in a packing template |
 
 ### Order Number Format
 

@@ -1,6 +1,7 @@
-# Packing List - Store Transfer Management System
+# Restaurant Operation System — React + Express (v2)
 
-Internal system for managing inventory transfers between store branches (B1, B2, B3).
+Internal system for managing restaurant operations including inventory transfers,
+invoices, packing, and cost management across store branches (B1, B2, B3).
 
 ## Prerequisites
 
