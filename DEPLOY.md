@@ -400,7 +400,286 @@ pm2 restart packing-api
 
 ---
 
-## Architecture Summary
+## Alternative: 100% Free Tier (Supabase + Render + Cloudflare Tunnel)
+
+> Use this path if you don't want to pay for a VPS or managed DB.
+> Everything below is free, no credit card required.
+
+### Architecture
+
+```
+Users (any location)
+     │
+     ▼
+app.yourdomain.com          ← Cloudflare Pages (free)
+     │
+     │ AJAX
+     ▼
+api.yourdomain.com          ← Cloudflare Tunnel (free)
+     │
+     ▼
+Render.com (Node.js server) ← Backend (free tier)
+     │
+     ▼
+Supabase (PostgreSQL)       ← Database (500MB free)
+```
+
+---
+
+### Step A — Supabase: Create PostgreSQL Database
+
+1. Go to [supabase.com](https://supabase.com) → **New project**
+2. Name: `packing-list-prod`
+3. Save the **Database password** (shown once only)
+4. Go to **Project Settings → Connection String → URI**
+5. Copy the **Connection URI** — looks like:
+   ```
+   postgres://postgres:PASSWORD@db.XXXXXXX.supabase.co:5432/postgres
+   ```
+
+You don't need to create tables — the app's `sequelize.sync()` creates them automatically on first start.
+
+---
+
+### Step B — Render.com: Deploy Backend
+
+#### B1. Push your code to GitHub (if not already)
+
+```bash
+cd packing-list
+git push origin master
+```
+
+#### B2. Create a Web Service on Render
+
+1. Go to [render.com](https://render.com) → **New → Web Service**
+2. Connect your GitHub repo (`packing-list`)
+3. Configure:
+
+| Field | Value |
+|---|---|
+| **Name** | `packing-list-api` |
+| **Region** | Singapore (closest to Vietnam) |
+| **Branch** | `master` |
+| **Root Directory** | `v2-react/server` |
+| **Runtime** | `Node` |
+| **Build Command** | `npm install` |
+| **Start Command** | `npm start` |
+| **Instance Type** | `Free` |
+
+#### B3. Add Environment Variables
+
+In Render dashboard → your Web Service → **Environment**:
+
+| Key | Value |
+|---|---|
+| `NODE_ENV` | `production` |
+| `PORT` | `3001` |
+| `DB_DIALECT` | `postgres` |
+| `DB_HOST` | `db.YOUR_PROJECT_ID.supabase.co` |
+| `DB_PORT` | `5432` |
+| `DB_NAME` | `postgres` |
+| `DB_USER` | `postgres` |
+| `DB_PASS` | `<your Supabase DB password>` |
+| `CLIENT_URL` | `https://app.yourdomain.com` |
+| `JWT_SECRET` | `<64-char random string>` |
+| `JWT_EXPIRES_IN` | `7d` |
+
+> To get `DB_HOST`: Supabase → Project Settings → Connection String → Host
+
+#### B4. Wait for first deploy
+
+Render will:
+1. `npm install` dependencies
+2. Start the server
+3. Run `sequelize.sync()` — creates all tables automatically
+
+Check logs: **Render Dashboard → your service → Logs**
+
+---
+
+### Step C — Cloudflare Tunnel (free API routing)
+
+Render's free tier gives a random URL like `packing-list-api.onrender.com`.
+**Do not expose this directly** — use Cloudflare Tunnel instead.
+
+#### C1. Install cloudflared on a local machine
+
+You need one always-on machine to run the tunnel. Options:
+- An old laptop at home (must be on 24/7)
+- A second Render Free instance with cloudflared
+- A $5/month Raspberry Pi at home
+
+```bash
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+chmod +x /usr/local/bin/cloudflared
+cloudflared --version
+```
+
+#### C2. Create tunnel
+
+```bash
+cloudflared tunnel create packing-list-prod
+# Output: Tunnel ID = xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+#### C3. Point tunnel to your Render URL
+
+```bash
+cloudflared tunnel route dns packing-list-prod api.yourdomain.com
+```
+
+#### C4. Write tunnel config
+
+On the machine running cloudflared:
+
+```bash
+nano ~/.cloudflared/config.yml
+```
+
+```yaml
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /root/.cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: api.yourdomain.com
+    service: https://packing-list-api.onrender.com
+    originRequest:
+      noTLSVerify: true
+  - service: http_status:404
+
+logLevel: info
+protocol: auto
+```
+
+#### C5. Run tunnel
+
+```bash
+cloudflared tunnel run packing-list-prod
+```
+
+To keep it running in background (systemd):
+
+```bash
+sudo nano /etc/systemd/system/cloudflared.service
+```
+
+```ini
+[Unit]
+Description=Cloudflare Tunnel
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/cloudflared tunnel run --config /root/.cloudflared/config.yml packing-list-prod
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
+```
+
+#### C6. DNS on Cloudflare Dashboard
+
+| Type | Name | Content | Proxy |
+|---|---|---|---|
+| CNAME | `api` | `xxx.tunnel.trycloudflare.com` | DNS only (grey) |
+
+Wait 5 min, then test:
+```bash
+curl https://api.yourdomain.com/health
+# Expected: {"status":"ok","timestamp":"..."}
+```
+
+---
+
+### Step D — Update Frontend API URL
+
+1. Go to **Cloudflare Pages → packing-list project → Settings → Environment Variables**
+2. Add:
+   ```
+   VITE_API_BASE_URL = https://api.yourdomain.com/api
+   ```
+3. Redeploy (Settings → Deployments → Retry latest)
+
+Or update `v2-react/client/.env.production` locally:
+```
+VITE_API_BASE_URL=https://api.yourdomain.com/api
+```
+Then `git push` → auto-rebuild.
+
+---
+
+### Step E — Run First Migration / Seed
+
+The app runs `sequelize.sync()` on first start — this creates all tables.
+
+To seed test data, the easiest way is to call the seed endpoint manually, or use the Render shell:
+
+1. **Render Dashboard → your service → Shell**
+2. Run:
+   ```bash
+   node src/seeders/seed.js
+   ```
+
+Or add a one-time seed script in the Build Command.
+
+**Recommended:** Create a free endpoint to trigger seeding:
+
+```bash
+# Create a temporary script: v2-react/server/src/seed-trigger.js
+# Add route to seed, call it once via curl, then delete the route
+curl -X POST https://api.yourdomain.com/api/admin/seed -H "Authorization: Bearer <admin_token>"
+```
+
+Or run directly:
+```bash
+curl -X POST http://localhost:3001/api/admin/seed \
+  -H "Authorization: Bearer <your_jwt_token>"
+```
+
+---
+
+### Free Tier Limits — What to Watch
+
+| Service | Limit | Mitigation |
+|---|---|---|
+| **Render** | Cold start 30s after 15min idle | Keep alive ping via cron job |
+| **Supabase** | 500MB DB | Monitor usage; delete old invoices/audit logs |
+| **Cloudflare Tunnel** | Needs always-on machine | Raspberry Pi or 2nd free Render instance |
+
+**Keep-alive ping (prevents Render sleep):**
+Create a free cron job (e.g., UptimeRobot) to ping:
+```
+https://api.yourdomain.com/health
+```
+every 10 minutes. This keeps the container warm.
+
+---
+
+### Troubleshooting
+
+**Render: "Build failed"**
+→ Check logs. Usually missing env vars or wrong root directory.
+
+**Supabase: "Connection refused"**
+→ Check `DB_HOST` and password in Render env vars.
+→ Supabase needs IP whitelist: go to **Supabase → Project Settings → Database → Network → Allow all** (or add Render's IP range).
+
+**Tunnel: "502 Bad Gateway"**
+→ Render free tier may sleep. Ping `https://packing-list-api.onrender.com/health` to wake it.
+→ Or the tunnel is pointing to wrong URL — double-check the Render service URL.
+
+**CORS error after deploy**
+→ Make sure `CLIENT_URL` in Render env matches exactly: `https://app.yourdomain.com` (no trailing slash).
+
+---
+
+*Document version: 1.1 — added 100% free tier path (Supabase + Render + Cloudflare Tunnel)*
 
 ```
 User at Kitchen A
