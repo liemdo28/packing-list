@@ -1,0 +1,132 @@
+name: Automation Tests
+
+on:
+  pull_request:
+    branches: [staging]
+  push:
+    branches: [staging]
+  schedule:
+    - cron: '0 1 * * *'
+
+jobs:
+  automation-tests:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: packing_list
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install root automation deps
+        run: npm install
+
+      - name: Install server deps
+        run: npm install
+        working-directory: v2-react/server
+
+      - name: Install client deps
+        run: npm install
+        working-directory: v2-react/client
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare automation env
+        run: |
+          mkdir -p testing/config
+          cat > testing/config/env.json <<'EOF'
+          {
+            "environment": "ci",
+            "baseUrl": "http://127.0.0.1:3001/api",
+            "webUrl": "http://127.0.0.1:5173",
+            "db": {
+              "host": "127.0.0.1",
+              "port": 3306,
+              "database": "packing_list",
+              "user": "root",
+              "password": "root"
+            },
+            "accounts": {
+              "admin": { "username": "admin", "password": "password" },
+              "accountant": { "username": "accountant", "password": "password" },
+              "b1": { "username": "user_b1", "password": "password" },
+              "b2": { "username": "user_b2", "password": "password" },
+              "b3": { "username": "user_b3", "password": "password" }
+            }
+          }
+          EOF
+
+      - name: Seed database
+        run: npm run seed
+        working-directory: v2-react/server
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_NAME: packing_list
+          DB_USER: root
+          DB_PASS: root
+          JWT_SECRET: ci-secret
+
+      - name: Start API
+        run: nohup npm run start > ../../testing/reports/server.log 2>&1 &
+        working-directory: v2-react/server
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_NAME: packing_list
+          DB_USER: root
+          DB_PASS: root
+          JWT_SECRET: ci-secret
+
+      - name: Start client
+        run: nohup npm run dev -- --host 0.0.0.0 > ../../testing/reports/client.log 2>&1 &
+        working-directory: v2-react/client
+
+      - name: Wait for API
+        run: npx wait-on http://127.0.0.1:3001/health
+
+      - name: Wait for client
+        run: npx wait-on http://127.0.0.1:5173/login
+
+      - name: Pull request validation
+        if: github.event_name == 'pull_request'
+        run: |
+          npm run test:smoke
+          npm run test:api
+          npm run test:ui
+
+      - name: Staging merge validation
+        if: github.event_name == 'push'
+        run: |
+          npm run test:smoke
+          npm run test:api
+          npm run test:ui
+          npm run test:load
+
+      - name: Nightly soak
+        if: github.event_name == 'schedule'
+        run: |
+          npm run test:load
+          npm run test:soak
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-reports
+          path: testing/reports

@@ -7,7 +7,14 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "seed": "node src/seeders/seed.js",
-    "migrate": "node src/index.js --migrate"
+    "migrate": "node src/index.js --migrate",
+    "stress:smoke":        "k6 run ../../stress/k6/smoke.js",
+    "stress:auth":         "k6 run ../../stress/k6/auth-load.js",
+    "stress:flow":        "k6 run ../../stress/k6/order-flow.js",
+    "stress:concurrency": "k6 run ../../stress/k6/same-order-concurrency.js",
+    "stress:summary":      "k6 run ../../stress/k6/summary-load.js",
+    "stress:export":       "k6 run ../../stress/k6/export-load.js",
+    "stress:soak":         "k6 run ../../stress/k6/soak-mixed.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

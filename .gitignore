@@ -42,3 +42,11 @@ npm-debug.log*
 # Misc
 *.sql
 *.sqlite
+!testing/db/*.sql
+testing/reports/*.json
+testing/reports/*.md
+testing/reports/*.html
+testing/reports/*.xml
+testing/reports/screenshots/
+testing/reports/videos/
+!testing/reports/.gitkeep

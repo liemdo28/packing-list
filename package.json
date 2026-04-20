@@ -1,0 +1,20 @@
+{
+  "name": "packing-list-automation",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test:smoke": "node testing/scripts/run-smoke.js",
+    "test:api": "node testing/scripts/run-api.js",
+    "test:ui": "node testing/scripts/run-ui.js",
+    "test:load": "node testing/scripts/run-load.js",
+    "test:soak": "node testing/scripts/run-soak.js",
+    "test:all": "node testing/scripts/run-all.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.1",
+    "bcryptjs": "^2.4.3",
+    "jest": "^30.0.5",
+    "mysql2": "^3.14.2",
+    "supertest": "^7.1.4"
+  }
+}

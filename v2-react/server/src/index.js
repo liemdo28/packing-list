@@ -1,44 +1,8 @@
-require('dotenv').config();
-
-const express = require('express');
-const cors = require('cors');
 const { sequelize } = require('./models');
-const routes = require('./routes');
+const { createApp } = require('./app');
 
-const app = express();
+const app = createApp();
 const PORT = process.env.PORT || 3001;
-
-// Middleware
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? process.env.CLIENT_URL
-    : ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true,
-}));
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// API Routes
-app.use('/api', routes);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
-  });
-});
 
 // Start server
 async function start() {
@@ -63,4 +27,8 @@ async function start() {
   }
 }
 
-start();
+if (require.main === module) {
+  start();
+}
+
+module.exports = { app, start };

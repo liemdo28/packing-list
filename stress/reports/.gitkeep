@@ -1,0 +1,2 @@
+# This directory stores JSON and markdown reports from k6 stress test runs.
+# Do NOT commit actual report files — only keep this placeholder.
