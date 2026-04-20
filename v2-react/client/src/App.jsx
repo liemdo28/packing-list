@@ -35,6 +35,7 @@ import PackingIndexPage from './domains/packing/pages/PackingIndexPage';
 import PackingCreatePage from './domains/packing/pages/PackingCreatePage';
 import PackingShowPage from './domains/packing/pages/PackingShowPage';
 import PackingTemplatesPage from './domains/packing/pages/PackingTemplatesPage';
+import PackingTemplateFormPage from './domains/packing/pages/PackingTemplateFormPage';
 
 import UserListPage from './domains/user/pages/UserListPage';
 import UserFormPage from './domains/user/pages/UserFormPage';
@@ -75,6 +76,7 @@ export default function App() {
         {/* Prices */}
         <Route path="prices" element={<ProtectedRoute roles={['admin', 'accountant']}><PriceListPage /></ProtectedRoute>} />
         <Route path="prices/new" element={<ProtectedRoute roles={['admin', 'accountant']}><PriceFormPage /></ProtectedRoute>} />
+        <Route path="prices/:id/edit" element={<ProtectedRoute roles={['admin', 'accountant']}><PriceFormPage /></ProtectedRoute>} />
         <Route path="prices/history/:itemId" element={<ProtectedRoute roles={['admin', 'accountant']}><PriceHistoryPage /></ProtectedRoute>} />
 
         {/* Orders */}
@@ -103,6 +105,8 @@ export default function App() {
         <Route path="packing/new" element={<ProtectedRoute roles={['admin']}><PackingCreatePage /></ProtectedRoute>} />
         <Route path="packing/:id" element={<ProtectedRoute roles={['admin', 'b1', 'b2', 'b3']}><PackingShowPage /></ProtectedRoute>} />
         <Route path="packing/templates" element={<ProtectedRoute roles={['admin']}><PackingTemplatesPage /></ProtectedRoute>} />
+        <Route path="packing/templates/new" element={<ProtectedRoute roles={['admin']}><PackingTemplateFormPage /></ProtectedRoute>} />
+        <Route path="packing/templates/:id/edit" element={<ProtectedRoute roles={['admin']}><PackingTemplateFormPage /></ProtectedRoute>} />
 
         {/* Users */}
         <Route path="users" element={<ProtectedRoute roles={['admin']}><UserListPage /></ProtectedRoute>} />

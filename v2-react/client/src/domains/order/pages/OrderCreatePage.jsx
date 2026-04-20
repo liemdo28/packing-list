@@ -6,11 +6,13 @@ import { getItems } from '../../../api/items';
 import { createOrder } from '../../../api/orders';
 import Alert from '../../../components/Alert';
 import { useAuth } from '../../../hooks/useAuth';
+import { useFlash } from '../../../contexts/FlashContext';
 import { isValidTransfer, getAvailableSources } from '../../../utils/helpers';
 
 export default function OrderCreatePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { flash } = useFlash();
 
   const [stores, setStores] = useState([]);
   const [items, setItems] = useState([]);
@@ -73,6 +75,7 @@ export default function OrderCreatePage() {
           notes: l.notes || undefined,
         })),
       });
+      flash('Order created successfully!', 'success');
       navigate(`/orders/${res.data.data.id}`);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create order');

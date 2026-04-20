@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { getAuditLogs } from '../../../api/auditLogs';
-import DataTable from '../../../components/DataTable';
-import { usePagination } from '../../../hooks/usePagination';
-import { formatDateTime } from '../../../utils/formatters';
+import { getAuditLogs } from '../../api/auditLogs';
+import DataTable from '../../components/DataTable';
+import { usePagination } from '../../hooks/usePagination';
+import { formatDateTime } from '../../utils/formatters';
 
 export default function AuditLogPage() {
   const [logs, setLogs] = useState([]);

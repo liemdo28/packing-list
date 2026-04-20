@@ -10,7 +10,7 @@ export default function ConfirmDialog({ open, onClose, onConfirm, title, message
         <div className="flex-shrink-0 rounded-full bg-red-100 p-2">
           <ExclamationTriangleIcon className="h-6 w-6 text-red-600" />
         </div>
-        <p className="text-sm text-gray-600">{message}</p>
+        <div className="flex-1 text-sm text-gray-600">{message}</div>
       </div>
       <div className="mt-6 flex justify-end gap-3">
         <button type="button" onClick={onClose} className="btn-secondary" disabled={loading}>

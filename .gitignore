@@ -1,4 +1,5 @@
 # Dependencies
+node_modules/
 v1-laravel/node_modules/
 v1-laravel/vendor/
 v2-react/node_modules/
@@ -31,6 +32,7 @@ Thumbs.db
 # Build outputs
 v1-laravel/public/build/
 v2-react/dist/
+v2-react/client/dist/
 
 # Logs
 *.log

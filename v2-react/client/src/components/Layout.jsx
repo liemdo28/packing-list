@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { Bars3Icon, ArrowRightOnRectangleIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
+import { FlashMessages } from '../contexts/FlashContext';
 import { useAuth } from '../hooks/useAuth';
 import { ROLE_LABELS } from '../utils/constants';
 
@@ -18,6 +19,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <FlashMessages />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="lg:pl-64">

@@ -1,3 +1,5 @@
+import { canPerformAction } from './workflow';
+
 export function isValidTransfer(fromCode, toCode) {
   const rules = [
     { from: 'B1', to: 'B2' },
@@ -23,22 +25,6 @@ export function getAvailableSources(role) {
     case 'b3': return ['B3'];
     default: return [];
   }
-}
-
-export function canPerformAction(userRole, orderStatus, action) {
-  const permissions = {
-    submit: { statuses: ['draft'], roles: ['admin', 'b1', 'b3'] },
-    prepare: { statuses: ['submitted'], roles: ['admin', 'b1', 'b3'] },
-    ship: { statuses: ['preparing'], roles: ['admin', 'b1', 'b3'] },
-    receive: { statuses: ['shipped'], roles: ['admin', 'b1', 'b2', 'b3'] },
-    complete: { statuses: ['received'], roles: ['admin', 'b1', 'b2', 'b3', 'accountant'] },
-    cancel: { statuses: ['draft', 'submitted', 'preparing'], roles: ['admin', 'b1', 'b3'] },
-    edit: { statuses: ['draft'], roles: ['admin', 'b1', 'b3'] },
-  };
-
-  const perm = permissions[action];
-  if (!perm) return false;
-  return perm.statuses.includes(orderStatus) && perm.roles.includes(userRole);
 }
 
 export function downloadBlob(blob, filename) {
