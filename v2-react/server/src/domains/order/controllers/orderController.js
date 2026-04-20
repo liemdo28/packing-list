@@ -1,7 +1,22 @@
+/**
+ * orderController — Node.js / Express
+ *
+ * Delegates all state mutations to OrderService (which handles
+ * pessimistic locking, idempotency, and price snapshots).
+ * Error messages from service are forwarded to the client as-is
+ * so the UI can display the actual conflict reason.
+ */
+
 const { Op } = require('sequelize');
-const { Order, OrderLine, Store, Item, User } = require('../../../models');
-const OrderService = require('../../../services/orderService');
-const { ORDER_STATUSES } = require('../../../config/app');
+const {
+  Order,
+  OrderLine,
+  Store,
+  Item,
+  User,
+} = require('../../models');
+const OrderService = require('../../services/orderService');
+const { ORDER_STATUSES } = require('../../config/app');
 
 const list = async (req, res) => {
   try {
@@ -70,7 +85,8 @@ const create = async (req, res) => {
     res.status(201).json({ data: order });
   } catch (error) {
     console.error('Create order error:', error);
-    res.status(400).json({ error: error.message });
+    const status = error.message.includes('not allowed') ? 400 : 500;
+    res.status(status).json({ error: error.message });
   }
 };
 
@@ -136,11 +152,16 @@ const update = async (req, res) => {
   }
 };
 
+// ─── State transitions ───────────────────────────────────────────────────────
+// All transition methods call OrderService which handles:
+//   1. DB transaction with FOR UPDATE row lock
+//   2. Idempotency guard (already-done transitions return silently)
+//   3. Transition validation
+//   4. Price snapshot atomically inside the COMPLETED transaction
+
 const submit = async (req, res) => {
   try {
-    const order = await OrderService.transitionStatus(
-      req.params.id, ORDER_STATUSES.SUBMITTED, req.user.id
-    );
+    const order = await OrderService.submitOrder(parseInt(req.params.id, 10), req.user.id);
     res.json({ data: order });
   } catch (error) {
     console.error('Submit order error:', error);
@@ -150,9 +171,7 @@ const submit = async (req, res) => {
 
 const prepare = async (req, res) => {
   try {
-    const order = await OrderService.transitionStatus(
-      req.params.id, ORDER_STATUSES.PREPARING, req.user.id
-    );
+    const order = await OrderService.prepareOrder(parseInt(req.params.id, 10), req.user.id);
     res.json({ data: order });
   } catch (error) {
     console.error('Prepare order error:', error);
@@ -162,9 +181,7 @@ const prepare = async (req, res) => {
 
 const ship = async (req, res) => {
   try {
-    const order = await OrderService.transitionStatus(
-      req.params.id, ORDER_STATUSES.SHIPPED, req.user.id
-    );
+    const order = await OrderService.shipOrder(parseInt(req.params.id, 10), req.user.id);
     res.json({ data: order });
   } catch (error) {
     console.error('Ship order error:', error);
@@ -174,19 +191,29 @@ const ship = async (req, res) => {
 
 const receive = async (req, res) => {
   try {
-    // Update received quantities if provided
-    if (req.body.lines) {
-      for (const lineData of req.body.lines) {
-        await OrderLine.update(
-          { received_quantity: lineData.received_quantity },
-          { where: { id: lineData.id } }
+    // Persist received quantities before the state transition
+    const lines = req.body.lines || [];
+    const orderId = parseInt(req.params.id, 10);
+
+    if (lines.length > 0) {
+      const t = await require('../../models').sequelize.transaction();
+      try {
+        await Promise.all(
+          lines.map((l) =>
+            require('../../models').OrderLine.update(
+              { received_quantity: l.received_quantity },
+              { where: { id: l.id, order_id: orderId }, transaction: t }
+            )
+          )
         );
+        await t.commit();
+      } catch (err) {
+        await t.rollback();
+        throw err;
       }
     }
 
-    const order = await OrderService.transitionStatus(
-      req.params.id, ORDER_STATUSES.RECEIVED, req.user.id
-    );
+    const order = await OrderService.receiveOrder(orderId, req.user.id);
     res.json({ data: order });
   } catch (error) {
     console.error('Receive order error:', error);
@@ -196,9 +223,7 @@ const receive = async (req, res) => {
 
 const complete = async (req, res) => {
   try {
-    const order = await OrderService.transitionStatus(
-      req.params.id, ORDER_STATUSES.COMPLETED, req.user.id
-    );
+    const order = await OrderService.completeOrder(parseInt(req.params.id, 10), req.user.id);
     res.json({ data: order });
   } catch (error) {
     console.error('Complete order error:', error);
@@ -208,10 +233,11 @@ const complete = async (req, res) => {
 
 const cancel = async (req, res) => {
   try {
-    const order = await OrderService.transitionStatus(
-      req.params.id, ORDER_STATUSES.CANCELLED, req.user.id, {
-        cancel_reason: req.body.cancel_reason,
-      }
+    const reason = req.body.cancel_reason || 'Cancelled by user';
+    const order = await OrderService.cancelOrder(
+      parseInt(req.params.id, 10),
+      req.user.id,
+      reason
     );
     res.json({ data: order });
   } catch (error) {
@@ -220,4 +246,7 @@ const cancel = async (req, res) => {
   }
 };
 
-module.exports = { list, create, get, update, submit, prepare, ship, receive, complete, cancel };
+module.exports = {
+  list, create, get, update,
+  submit, prepare, ship, receive, complete, cancel,
+};

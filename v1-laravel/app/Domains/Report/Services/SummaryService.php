@@ -3,6 +3,7 @@
 namespace App\Domains\Report\Services;
 
 use App\Domains\Order\Models\Order;
+use App\Domains\Invoice\Models\MonthlySummary;
 use App\Domains\User\Models\Store;
 use Illuminate\Support\Facades\DB;
 

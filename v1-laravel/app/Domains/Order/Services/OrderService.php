@@ -8,9 +8,12 @@ use App\Domains\User\Models\Store;
 use App\Domains\Inventory\Models\Item;
 use App\Domains\Notification\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 
 class OrderService
 {
+    protected const LOCK_TIMEOUT_SECONDS = 5;
+
     public function __construct(
         protected NotificationService $notificationService
     ) {}
@@ -44,33 +47,67 @@ class OrderService
         });
     }
 
-    public function submitOrder(Order $order): Order
+    /**
+     * Submit order with pessimistic lock + idempotency.
+     */
+    public function submitOrder(int $orderId): Order
     {
-        $order->update([
-            'status' => 'submitted',
-            'submitted_at' => now(),
-        ]);
+        return $this->withOrderLock($orderId, function ($order) {
+            if ($order->status !== 'draft') {
+                if ($order->status === 'submitted') {
+                    return $order; // idempotent
+                }
+                throw new \Exception("Cannot submit order in status: {$order->status}");
+            }
 
-        $this->notificationService->notifyOrderSubmitted($order);
+            $order->update([
+                'status' => 'submitted',
+                'submitted_at' => now(),
+            ]);
 
-        return $order;
+            $this->notificationService->notifyOrderSubmitted($order);
+
+            return $order->fresh(['lines.item', 'fromStore', 'toStore']);
+        });
     }
 
-    public function processOrder(Order $order): Order
+    /**
+     * Process order (start preparing) with lock + idempotency.
+     */
+    public function processOrder(int $orderId): Order
     {
-        $order->update([
-            'status' => 'processing',
-            'processing_at' => now(),
-        ]);
+        return $this->withOrderLock($orderId, function ($order) {
+            if ($order->status === 'processing') {
+                return $order; // idempotent
+            }
+            if ($order->status !== 'submitted') {
+                throw new \Exception("Cannot process order in status: {$order->status}");
+            }
 
-        $this->notificationService->notifyOrderProcessing($order);
+            $order->update([
+                'status' => 'processing',
+                'processing_at' => now(),
+            ]);
 
-        return $order;
+            $this->notificationService->notifyOrderProcessing($order);
+
+            return $order->fresh(['lines.item', 'fromStore', 'toStore']);
+        });
     }
 
-    public function markReadyToShip(Order $order, array $lines): Order
+    /**
+     * Mark order ready to ship with lock + idempotency.
+     */
+    public function markReadyToShip(int $orderId, array $lines): Order
     {
-        return DB::transaction(function () use ($order, $lines) {
+        return $this->withOrderLock($orderId, function ($order) use ($lines) {
+            if ($order->status === 'ready_to_ship') {
+                return $order; // idempotent
+            }
+            if ($order->status !== 'processing') {
+                throw new \Exception("Cannot mark ready_to_ship in status: {$order->status}");
+            }
+
             foreach ($lines as $lineData) {
                 OrderLine::where('id', $lineData['id'])
                     ->where('order_id', $order->id)
@@ -87,25 +124,47 @@ class OrderService
 
             $this->notificationService->notifyOrderReadyToShip($order);
 
-            return $order->fresh('lines.item');
+            return $order->fresh(['lines.item', 'fromStore', 'toStore']);
         });
     }
 
-    public function markInTransit(Order $order): Order
+    /**
+     * Mark order in transit (ship) with lock + idempotency.
+     */
+    public function markInTransit(int $orderId): Order
     {
-        $order->update([
-            'status' => 'in_transit',
-            'shipped_at' => now(),
-        ]);
+        return $this->withOrderLock($orderId, function ($order) {
+            if ($order->status === 'in_transit') {
+                return $order; // idempotent
+            }
+            if ($order->status !== 'ready_to_ship') {
+                throw new \Exception("Cannot mark in_transit in status: {$order->status}");
+            }
 
-        $this->notificationService->notifyOrderInTransit($order);
+            $order->update([
+                'status' => 'in_transit',
+                'shipped_at' => now(),
+            ]);
 
-        return $order;
+            $this->notificationService->notifyOrderInTransit($order);
+
+            return $order->fresh(['lines.item', 'fromStore', 'toStore']);
+        });
     }
 
-    public function receiveOrder(Order $order, array $lines): Order
+    /**
+     * Receive order with lock + idempotency.
+     */
+    public function receiveOrder(int $orderId, array $lines): Order
     {
-        return DB::transaction(function () use ($order, $lines) {
+        return $this->withOrderLock($orderId, function ($order) use ($lines) {
+            if ($order->status === 'received_pending_confirmation') {
+                return $order; // idempotent
+            }
+            if (!in_array($order->status, ['in_transit', 'received_pending_confirmation'])) {
+                throw new \Exception("Cannot receive order in status: {$order->status}");
+            }
+
             $hasAdjustments = false;
 
             foreach ($lines as $lineData) {
@@ -136,20 +195,33 @@ class OrderService
                 $this->notificationService->notifyOrderAdjusted($order);
             }
 
-            return $order->fresh('lines.item');
+            return $order->fresh(['lines.item', 'fromStore', 'toStore']);
         });
     }
 
-    public function completeOrder(Order $order): Order
+    /**
+     * Complete order with lock + idempotency + price snapshot in transaction.
+     */
+    public function completeOrder(int $orderId): Order
     {
-        return DB::transaction(function () use ($order) {
-            // Calculate final_qty for each line
-            foreach ($order->lines as $line) {
-                $finalQty = $line->received_qty ?? $line->shipped_qty ?? $line->requested_qty;
-                $line->update(['final_qty' => $finalQty]);
+        return $this->withOrderLock($orderId, function ($order) {
+            if ($order->status === 'completed') {
+                return $order; // idempotent - already done
+            }
+            if ($order->status !== 'received_pending_confirmation') {
+                throw new \Exception("Cannot complete order in status: {$order->status}");
             }
 
-            $this->snapshotPrices($order);
+            // Snapshot prices INSIDE the same transaction (already locked)
+            foreach ($order->lines as $line) {
+                $price = $line->item->getCurrentPriceValue();
+                $qty = $line->getFinalQty();
+
+                $line->update([
+                    'unit_price' => $price,
+                    'line_total' => round($qty * $price, 2),
+                ]);
+            }
 
             $order->update([
                 'status' => 'completed',
@@ -158,36 +230,145 @@ class OrderService
 
             $this->notificationService->notifyOrderCompleted($order);
 
-            return $order->fresh('lines.item');
+            return $order->fresh(['lines.item', 'fromStore', 'toStore']);
         });
     }
 
-    public function cancelOrder(Order $order, string $reason): Order
+    /**
+     * Cancel order with lock + idempotency.
+     */
+    public function cancelOrder(int $orderId, string $reason): Order
     {
-        $order->update([
-            'status' => 'cancelled',
-            'cancel_reason' => $reason,
-        ]);
+        return $this->withOrderLock($orderId, function ($order) use ($reason) {
+            if ($order->status === 'cancelled') {
+                return $order; // idempotent
+            }
+            if (!in_array($order->status, ['draft', 'submitted', 'processing'])) {
+                throw new \Exception("Cannot cancel order in status: {$order->status}");
+            }
 
-        $this->notificationService->notifyOrderCancelled($order);
+            $order->update([
+                'status' => 'cancelled',
+                'cancel_reason' => $reason,
+            ]);
 
-        return $order;
+            $this->notificationService->notifyOrderCancelled($order);
+
+            return $order->fresh(['lines.item', 'fromStore', 'toStore']);
+        });
     }
 
-    public function disputeOrder(Order $order, string $reason): Order
+    /**
+     * Dispute order with lock + idempotency.
+     */
+    public function disputeOrder(int $orderId, string $reason): Order
     {
-        $order->update([
-            'status' => 'disputed',
-            'cancel_reason' => $reason,
-        ]);
+        return $this->withOrderLock($orderId, function ($order) use ($reason) {
+            if ($order->status === 'disputed') {
+                return $order; // idempotent
+            }
+            if ($order->status !== 'received_pending_confirmation') {
+                throw new \Exception("Cannot dispute order in status: {$order->status}");
+            }
 
-        $this->notificationService->notifyOrderDisputed($order);
+            $order->update([
+                'status' => 'disputed',
+                'cancel_reason' => $reason,
+            ]);
 
-        return $order;
+            $this->notificationService->notifyOrderDisputed($order);
+
+            return $order->fresh(['lines.item', 'fromStore', 'toStore']);
+        });
+    }
+
+    /**
+     * Revert completed order back to received_pending_confirmation (for disputes).
+     */
+    public function revertToReceived(int $orderId): Order
+    {
+        return $this->withOrderLock($orderId, function ($order) {
+            if ($order->status !== 'completed') {
+                throw new \Exception("Can only revert completed orders");
+            }
+
+            $order->update([
+                'status' => 'received_pending_confirmation',
+                'completed_at' => null,
+                'unit_price' => null,
+                'line_total' => null,
+            ]);
+
+            return $order->fresh(['lines.item', 'fromStore', 'toStore']);
+        });
+    }
+
+    /**
+     * Execute a callback within a pessimistic lock on the order row.
+     * Uses SELECT ... FOR UPDATE to prevent concurrent modifications.
+     *
+     * @param int $orderId
+     * @param callable $callback
+     * @return mixed
+     * @throws \Exception
+     */
+    protected function withOrderLock(int $orderId, callable $callback): mixed
+    {
+        return DB::transaction(function () use ($orderId, $callback) {
+            // Pessimistic row lock — blocks other transactions trying to modify this order
+            $order = Order::where('id', $orderId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$order) {
+                throw new \Exception("Order not found: {$orderId}");
+            }
+
+            return $callback($order);
+        });
+    }
+
+    // ── Legacy methods kept for backward compatibility ─────────────────────
+
+    public function submitOrderByModel(Order $order): Order
+    {
+        return $this->submitOrder($order->id);
+    }
+
+    public function processOrderByModel(Order $order): Order
+    {
+        return $this->processOrder($order->id);
+    }
+
+    public function markReadyToShipByModel(Order $order, array $lines): Order
+    {
+        return $this->markReadyToShip($order->id, $lines);
+    }
+
+    public function markInTransitByModel(Order $order): Order
+    {
+        return $this->markInTransit($order->id);
+    }
+
+    public function receiveOrderByModel(Order $order, array $lines): Order
+    {
+        return $this->receiveOrder($order->id, $lines);
+    }
+
+    public function completeOrderByModel(Order $order): Order
+    {
+        return $this->completeOrder($order->id);
+    }
+
+    public function cancelOrderByModel(Order $order, string $reason): Order
+    {
+        return $this->cancelOrder($order->id, $reason);
     }
 
     public function snapshotPrices(Order $order): void
     {
+        // No longer used internally (snapshot moved into completeOrder transaction).
+        // Kept for backward compatibility with any external callers.
         foreach ($order->lines as $line) {
             $price = $line->item->getCurrentPriceValue();
             $qty = $line->getFinalQty();

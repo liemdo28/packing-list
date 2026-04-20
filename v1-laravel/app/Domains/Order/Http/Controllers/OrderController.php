@@ -98,7 +98,11 @@ class OrderController extends Controller
         if (!$order->canBeSubmitted()) {
             return back()->with('error', 'Order cannot be submitted.');
         }
-        $this->orderService->submitOrder($order);
+        try {
+            $this->orderService->submitOrder($order->id);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
         return back()->with('success', 'Order submitted successfully.');
     }
 
@@ -107,7 +111,11 @@ class OrderController extends Controller
         if (!$order->canBeProcessed()) {
             return back()->with('error', 'Order cannot be processed.');
         }
-        $this->orderService->processOrder($order);
+        try {
+            $this->orderService->processOrder($order->id);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
         return back()->with('success', 'Order is now being processed.');
     }
 
@@ -124,7 +132,11 @@ class OrderController extends Controller
             'lines.*.notes' => 'nullable|string|max:500',
         ]);
 
-        $this->orderService->markReadyToShip($order, $data['lines']);
+        try {
+            $this->orderService->markReadyToShip($order->id, $data['lines']);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
         return back()->with('success', 'Quantities entered. Order ready to ship.');
     }
 
@@ -133,7 +145,11 @@ class OrderController extends Controller
         if (!$order->canBeInTransit()) {
             return back()->with('error', 'Order cannot be marked in transit.');
         }
-        $this->orderService->markInTransit($order);
+        try {
+            $this->orderService->markInTransit($order->id);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
         return back()->with('success', 'Order is now in transit.');
     }
 
@@ -150,7 +166,11 @@ class OrderController extends Controller
             'lines.*.notes' => 'nullable|string|max:500',
         ]);
 
-        $this->orderService->receiveOrder($order, $data['lines']);
+        try {
+            $this->orderService->receiveOrder($order->id, $data['lines']);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
         return back()->with('success', 'Order received. Pending confirmation.');
     }
 
@@ -159,7 +179,11 @@ class OrderController extends Controller
         if (!$order->canBeCompleted()) {
             return back()->with('error', 'Order cannot be completed.');
         }
-        $this->orderService->completeOrder($order);
+        try {
+            $this->orderService->completeOrder($order->id);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
         return back()->with('success', 'Order completed. Prices snapshot taken.');
     }
 
@@ -173,7 +197,11 @@ class OrderController extends Controller
             'cancel_reason' => 'required|string|max:500',
         ]);
 
-        $this->orderService->cancelOrder($order, $data['cancel_reason']);
+        try {
+            $this->orderService->cancelOrder($order->id, $data['cancel_reason']);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
         return back()->with('success', 'Order cancelled.');
     }
 
@@ -187,7 +215,11 @@ class OrderController extends Controller
             'dispute_reason' => 'required|string|max:500',
         ]);
 
-        $this->orderService->disputeOrder($order, $data['dispute_reason']);
+        try {
+            $this->orderService->disputeOrder($order->id, $data['dispute_reason']);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
         return back()->with('success', 'Order has been disputed.');
     }
 }
