@@ -6,6 +6,12 @@ v2-react/node_modules/
 v2-react/client/node_modules/
 v2-react/server/node_modules/
 
+# Lock files
+package-lock.json
+v1-laravel/package-lock.json
+v2-react/client/package-lock.json
+v2-react/server/package-lock.json
+
 # Environment files (only .env — secrets)
 v1-laravel/.env
 v2-react/client/.env
@@ -45,6 +51,7 @@ npm-debug.log*
 *.sql
 *.sqlite
 !testing/db/*.sql
+!stress/sql/*.sql
 testing/reports/*.json
 testing/reports/*.md
 testing/reports/*.html
@@ -52,3 +59,6 @@ testing/reports/*.xml
 testing/reports/screenshots/
 testing/reports/videos/
 !testing/reports/.gitkeep
+
+# Legacy testing (superseded by /stress — kept for reference only)
+testing/
