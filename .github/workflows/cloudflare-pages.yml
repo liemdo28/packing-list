@@ -1,0 +1,88 @@
+name: Deploy Frontend to Cloudflare Pages
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      # Only trigger on frontend changes
+      - 'v2-react/client/**'
+      - '.github/workflows/cloudflare-pages.yml'
+
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: v2-react/client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: v2-react/client
+        run: npm ci
+
+      # Optional: set environment variables for production build
+      # Uncomment and add secrets in GitHub repo → Settings → Secrets
+      # - name: Set production env
+      #   run: |
+      #     echo "VITE_API_BASE_URL=https://api.yourdomain.com/api" >> $GITHUB_ENV
+      #     echo "VITE_APP_URL=https://app.yourdomain.com" >> $GITHUB_ENV
+
+      - name: Build
+        working-directory: v2-react/client
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://api.yourdomain.com/api' }}
+          VITE_APP_URL: ${{ vars.VITE_APP_URL || 'https://app.yourdomain.com' }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'packing-list' }}
+          directory: v2-react/client/dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: deploy to production branch automatically
+          # produces a preview URL; skip for direct production deploy
+          # productionBranch: master
+
+  build-check:
+    name: Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: v2-react/client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: v2-react/client
+        run: npm ci
+
+      - name: Build
+        working-directory: v2-react/client
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: v2-react/client/dist
+          retention-days: 7

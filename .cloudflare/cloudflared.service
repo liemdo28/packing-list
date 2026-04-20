@@ -1,0 +1,29 @@
+# ============================================================
+# Cloudflare Tunnel — systemd service template
+# ============================================================
+# Save to: /etc/systemd/system/cloudflared.service
+# Then run:
+#   sudo systemctl enable cloudflared
+#   sudo systemctl start cloudflared
+# ============================================================
+
+[Unit]
+Description=Cloudflare Tunnel for packing-list API
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared tunnel run --config /root/.cloudflared/config.yml packing-list-prod
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+# Reduce log spam
+Environment=LOG_LEVEL=info
+
+# Security: run as non-root if desired
+# User=cloudflared
+# Group=cloudflared
+
+[Install]
+WantedBy=multi-user.target

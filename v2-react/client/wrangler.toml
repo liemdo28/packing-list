@@ -1,0 +1,12 @@
+name = "packing-list-client"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "./dist"
+
+[vars]
+NODE_VERSION = "20"
+
+[env.production]
+name = "packing-list-client"
+routes = [
+  { pattern = "app.yourdomain.com", zone_name = "yourdomain.com" }
+]
