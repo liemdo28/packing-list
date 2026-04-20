@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { PlusIcon } from '@heroicons/react/24/outline';
-import api from '../../../api/axios';
+import client from '../../../api/client';
 import DataTable from '../../../components/DataTable';
 import { useAuth } from '../../../hooks/useAuth';
 
@@ -25,7 +25,7 @@ export default function PackingIndexPage() {
         setLoading(true);
         try {
             const params = { page, limit, ...filters };
-            const res = await api.get('/packing', { params });
+            const res = await client.get('/packing', { params });
             setJobs(res.data.data || []);
             setTotal(res.data.total || 0);
         } catch (err) {

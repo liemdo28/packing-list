@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { CheckIcon, TruckIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
-import api from '../../../api/axios';
+import client from '../../../api/client';
 import { useAuth } from '../../../hooks/useAuth';
 
 export default function PackingShowPage() {
@@ -16,7 +16,7 @@ export default function PackingShowPage() {
     const fetchJob = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await api.get(`/packing/${id}`);
+            const res = await client.get(`/packing/${id}`);
             setJob(res.data);
             setItems(res.data.PackingItems || []);
         } catch (err) {
@@ -29,7 +29,7 @@ export default function PackingShowPage() {
 
     const handleTogglePacked = async (item) => {
         try {
-            await api.put(`/packing/${id}/items/${item.id}`, {
+            await client.put(`/packing/${id}/items/${item.id}`, {
                 packed: !item.packed,
                 packed_qty: !item.packed ? item.quantity : item.packed_qty,
             });
@@ -42,7 +42,7 @@ export default function PackingShowPage() {
     const handleRemoveItem = async (item) => {
         if (!confirm('Remove item?')) return;
         try {
-            await api.delete(`/packing/${id}/items/${item.id}`);
+            await client.delete(`/packing/${id}/items/${item.id}`);
             fetchJob();
         } catch (err) {
             console.error(err);
@@ -51,7 +51,7 @@ export default function PackingShowPage() {
 
     const handleMarkAllPacked = async () => {
         try {
-            await api.post(`/packing/${id}/mark-all-packed`);
+            await client.post(`/packing/${id}/mark-all-packed`);
             fetchJob();
         } catch (err) {
             console.error(err);
@@ -60,7 +60,7 @@ export default function PackingShowPage() {
 
     const handleShip = async () => {
         try {
-            await api.post(`/packing/${id}/ship`);
+            await client.post(`/packing/${id}/ship`);
             fetchJob();
         } catch (err) {
             console.error(err);
@@ -190,7 +190,7 @@ function AddItemModal({ id, onClose, onAdd }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await api.post(`/packing/${id}/items`, { item_id: itemId, quantity: parseFloat(quantity) });
+            await client.post(`/packing/${id}/items`, { item_id: itemId, quantity: parseFloat(quantity) });
             onAdd();
         } catch (err) {
             alert(err.response?.data?.error || 'Error adding item');

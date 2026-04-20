@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../../api/axios';
+import client from '../../../api/client';
 
 export default function PackingCreatePage() {
     const navigate = useNavigate();
@@ -15,13 +15,13 @@ export default function PackingCreatePage() {
     });
 
     useEffect(() => {
-        api.get('/stores').then(r => setStores(r.data || []));
+        client.get('/stores').then(r => setStores(r.data || []));
     }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const res = await api.post('/packing', form);
+            const res = await client.post('/packing', form);
             navigate(`/packing/${res.data.id}`);
         } catch (err) {
             alert(err.response?.data?.error || 'Error creating packing job');

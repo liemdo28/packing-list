@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import api from '../../../api/axios';
+import client from '../../../api/client';
 
 export default function PackingTemplatesPage() {
     const [templates, setTemplates] = useState([]);
@@ -11,7 +11,7 @@ export default function PackingTemplatesPage() {
     const fetchTemplates = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/packing/templates/list');
+            const res = await client.get('/packing/templates/list');
             setTemplates(res.data || []);
         } catch (err) {
             console.error(err);
@@ -24,7 +24,7 @@ export default function PackingTemplatesPage() {
     const handleDelete = async (t) => {
         if (!confirm(`Delete "${t.name}"?`)) return;
         try {
-            await api.delete(`/packing/templates/${t.id}`);
+            await client.delete(`/packing/templates/${t.id}`);
             fetchTemplates();
         } catch (err) {
             console.error(err);
