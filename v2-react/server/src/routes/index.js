@@ -14,5 +14,6 @@ router.use('/users', require('../domains/user/routes/users'));
 router.use('/dashboard', require('../domains/dashboard/routes/dashboard'));
 router.use('/export', require('../domains/report/routes/export'));
 router.use('/packing', require('../domains/packing/routes/packing'));
+router.use('/admin/pricing', require('../domains/admin/routes/pricing'));
 
 module.exports = router;

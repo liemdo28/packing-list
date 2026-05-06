@@ -325,7 +325,46 @@ async function getCurrentPrices() {
   return rows;
 }
 
+// ── Table bootstrap ───────────────────────────────────────────────────────────
+
+async function ensureSyncTables() {
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS price_sync_logs (
+      id            INT AUTO_INCREMENT PRIMARY KEY,
+      status        VARCHAR(20)  NOT NULL DEFAULT 'running',
+      sheet_url     TEXT,
+      triggered_by  VARCHAR(100),
+      items_synced  INT          DEFAULT 0,
+      items_updated INT          DEFAULT 0,
+      items_failed  INT          DEFAULT 0,
+      items_missing INT          DEFAULT 0,
+      error_message TEXT,
+      started_at    DATETIME     NOT NULL,
+      completed_at  DATETIME
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS price_audit_logs (
+      id             INT AUTO_INCREMENT PRIMARY KEY,
+      item_id        INT,
+      item_name      VARCHAR(255),
+      old_price      DECIMAL(10,2),
+      new_price      DECIMAL(10,2) NOT NULL,
+      effective_date DATE,
+      changed_by     VARCHAR(100),
+      source         VARCHAR(50),
+      created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_item_id (item_id),
+      INDEX idx_created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  console.log('[price-sync] Sync tables verified');
+}
+
 module.exports = {
+  ensureSyncTables,
   runSync,
   getMissingPrices,
   getLastSync,

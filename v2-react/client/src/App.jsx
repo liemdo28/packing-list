@@ -39,6 +39,7 @@ import PackingTemplateFormPage from './domains/packing/pages/PackingTemplateForm
 
 import UserListPage from './domains/user/pages/UserListPage';
 import UserFormPage from './domains/user/pages/UserFormPage';
+import PricingDashboardPage from './pages/admin/PricingDashboardPage';
 
 export default function App() {
   const { loading } = useAuth();
@@ -112,6 +113,9 @@ export default function App() {
         <Route path="users" element={<ProtectedRoute roles={['admin']}><UserListPage /></ProtectedRoute>} />
         <Route path="users/new" element={<ProtectedRoute roles={['admin']}><UserFormPage /></ProtectedRoute>} />
         <Route path="users/:id/edit" element={<ProtectedRoute roles={['admin']}><UserFormPage /></ProtectedRoute>} />
+
+        {/* Admin Pricing Dashboard */}
+        <Route path="admin/pricing" element={<ProtectedRoute roles={['admin', 'accountant']}><PricingDashboardPage /></ProtectedRoute>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
