@@ -1,7 +1,43 @@
-# Store Testing Runbook
+# Store Testing Runbook — bakudanramen.com
 
 > **Purpose:** Step-by-step operator guide to deploy, seed, and verify the system before handing credentials to stores.
 > **Rule:** Do NOT share any link or credential until every gate in the Pre-Launch Checklist is ticked.
+
+---
+
+## Production URL Structure
+
+| Purpose | URL |
+|---------|-----|
+| **Frontend (app)** | `https://packinglist.bakudanramen.com` |
+| **Backend API** | `https://api.bakudanramen.com/api` |
+| **Health check** | `https://api.bakudanramen.com/health` |
+| **Admin pricing** | `https://packinglist.bakudanramen.com/admin/pricing` |
+| **Cloudflare Pages (origin)** | `https://packing-list-1.pages.dev` |
+
+---
+
+## DNS Records Required
+
+At your DNS provider (external — not Cloudflare-managed):
+
+### Frontend (already submitted to Cloudflare — pending propagation)
+
+| Type | Name | Target | TTL |
+|------|------|--------|-----|
+| CNAME | `packinglist` | `packing-list-1.pages.dev` | 300 |
+
+> This is the CNAME shown in your Cloudflare Pages dashboard.
+> Status will change from **Inactive** to **Active** once propagated (up to 24 h).
+
+### Backend API (add once your origin server has a public IP)
+
+| Type | Name | Target | TTL |
+|------|------|--------|-----|
+| A | `api` | `<your-server-public-IP>` | 300 |
+
+> After the A record propagates, run: `sudo certbot --nginx -d api.bakudanramen.com`
+> The nginx config is at `docs/nginx.conf` in this repo.
 
 ---
 
@@ -22,14 +58,15 @@
 
 ## Operator Deployment Steps
 
-### Step 1 — GitHub Variables (do once)
+### Step 1 — GitHub Variables (already configured ✅)
 
 In the GitHub repo → **Settings → Secrets and variables → Actions → Variables**:
 
-| Variable name        | Value |
-|----------------------|-------|
-| `VITE_API_BASE_URL`  | `https://api.yourdomain.com/api` |
-| `VITE_APP_URL`       | `https://app.yourdomain.com` |
+| Variable name              | Value |
+|----------------------------|-------|
+| `VITE_API_BASE_URL`        | `https://api.bakudanramen.com/api` |
+| `VITE_APP_URL`             | `https://packinglist.bakudanramen.com` |
+| `CLOUDFLARE_PAGES_PROJECT` | `packing-list-1` |
 
 In **Secrets** (not variables):
 
@@ -38,7 +75,7 @@ In **Secrets** (not variables):
 | `CLOUDFLARE_API_TOKEN`    | From Cloudflare → My Profile → API Tokens |
 | `CLOUDFLARE_ACCOUNT_ID`   | From Cloudflare → top-right account switcher |
 
-Push to `master` → the `Deploy Frontend to Cloudflare Pages` workflow triggers automatically.
+Push to `master` → CI deploys to Cloudflare Pages project `packing-list-1` automatically.
 
 ---
 
@@ -76,7 +113,7 @@ Critical `.env` values to fill:
 ```env
 NODE_ENV=production
 PORT=3001
-CLIENT_URL=https://app.yourdomain.com
+CLIENT_URL=https://packinglist.bakudanramen.com
 
 DB_DIALECT=mysql          # or postgres for Supabase
 DB_HOST=your-db-host
@@ -120,58 +157,49 @@ npm run seed:prod
 
 ---
 
-### Step 4 — Cloudflare Tunnel (API routing)
+### Step 4 — Nginx + SSL for API (api.bakudanramen.com)
+
+> Full config is at `docs/nginx.conf` in this repo.
 
 ```bash
-# On origin server — install cloudflared
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
-  -o /usr/local/bin/cloudflared
-chmod +x /usr/local/bin/cloudflared
+# Install nginx and certbot
+sudo apt update && sudo apt install -y nginx certbot python3-certbot-nginx
 
-# Authenticate (opens browser for your Cloudflare account)
-cloudflared tunnel login
+# Deploy nginx config
+sudo cp /opt/packing-list/docs/nginx.conf \
+        /etc/nginx/sites-available/api.bakudanramen.com
+sudo ln -s /etc/nginx/sites-available/api.bakudanramen.com \
+           /etc/nginx/sites-enabled/api.bakudanramen.com
+sudo nginx -t          # verify config syntax
+sudo systemctl reload nginx
 
-# Create tunnel
-cloudflared tunnel create packing-list-prod
-# Note the Tunnel ID printed
+# Issue SSL cert (requires the A record for api.bakudanramen.com to already resolve)
+sudo certbot --nginx -d api.bakudanramen.com
+# Certbot auto-rewrites the nginx config with the cert paths and sets up auto-renewal
 
-# Route your api subdomain through it
-cloudflared tunnel route dns packing-list-prod api.yourdomain.com
-
-# Write config
-mkdir -p ~/.cloudflared
-cat > ~/.cloudflared/config.yml <<EOF
-tunnel: YOUR_TUNNEL_ID
-credentials-file: /root/.cloudflared/YOUR_TUNNEL_ID.json
-
-ingress:
-  - hostname: api.yourdomain.com
-    service: http://localhost:3001
-  - service: http_status:404
-EOF
-
-# Run as systemd service so it survives reboots
-cloudflared service install
-systemctl enable cloudflared
-systemctl start cloudflared
-systemctl status cloudflared   # should show "active (running)"
+# Verify
+curl https://api.bakudanramen.com/health
+# Expected: {"status":"ok","db":{"status":"ok"},...}
 ```
 
 ---
 
 ### Step 5 — DNS Records
 
-In **Cloudflare Dashboard → your domain → DNS**:
+At your **external DNS provider** (since bakudanramen.com is not Cloudflare-managed):
 
-| Type  | Name  | Content                              | Proxy status |
-|-------|-------|--------------------------------------|-------------|
-| CNAME | `app` | `packing-list.pages.dev` (or your Pages URL) | Proxied ✅ |
-| CNAME | `api` | `YOUR_TUNNEL_ID.cfargotunnel.com`    | Proxied ✅  |
+| Type  | Name          | Target / Value                    | TTL |
+|-------|---------------|-----------------------------------|-----|
+| CNAME | `packinglist` | `packing-list-1.pages.dev`        | 300 |
+| A     | `api`         | `<your-server-public-IP>`         | 300 |
 
-Wait 1–2 min, then:
+The CNAME record for `packinglist` was already submitted to Cloudflare and is pending DNS propagation.
+Add the `A` record for `api` pointing to your backend server IP.
+
+After DNS propagates (test with `dig api.bakudanramen.com +short`):
 
 ```bash
-curl https://api.yourdomain.com/health
+curl https://api.bakudanramen.com/health
 # Expected: {"status":"ok","db":{"status":"ok"},...}
 ```
 
@@ -186,7 +214,7 @@ If you want items and prices synced from the Google Sheet before testers start:
 # Login as admin → Pricing Admin (sidebar) → "Sync from Google Sheets"
 
 # Or via API:
-curl -X POST https://api.yourdomain.com/api/admin/pricing/sync \
+curl -X POST https://api.bakudanramen.com/api/admin/pricing/sync \
   -H "Authorization: Bearer YOUR_ADMIN_JWT"
 ```
 
@@ -223,8 +251,8 @@ Run this from top to bottom. Share credentials only after all boxes are ticked.
 
 ### Infrastructure
 
-- [ ] `https://api.yourdomain.com/health` → `{"status":"ok","db":{"status":"ok"}}`
-- [ ] `https://app.yourdomain.com` loads the login screen
+- [ ] `https://api.bakudanramen.com/health` → `{"status":"ok","db":{"status":"ok"}}`
+- [ ] `https://packinglist.bakudanramen.com` loads the login screen
 - [ ] Cloudflare Tunnel running: `systemctl status cloudflared` → active
 - [ ] PM2 processes running: `pm2 list` shows `packing-api` and `packing-monitor` online
 
@@ -298,39 +326,39 @@ node smoke_flow_full.js
 > Send each row to the relevant person only — do not CC all stores.
 
 ```
-Application URL:  https://app.YOURDOMAIN.com
+Application URL:  https://packinglist.bakudanramen.com
 
 ─────────────────────────────────────────────────────
 ADMIN
-  URL:      https://app.YOURDOMAIN.com
+  URL:      https://packinglist.bakudanramen.com
   Username: admin
   Password: [SEED_ADMIN_PASS you used in Step 3]
   Role:     Full system access
 
 ─────────────────────────────────────────────────────
 BRANCH 1 (Main Store)
-  URL:      https://app.YOURDOMAIN.com
+  URL:      https://packinglist.bakudanramen.com
   Username: user_b1
   Password: [SEED_STORE_PASS you used in Step 3]
   Role:     Create and ship orders from B1
 
 ─────────────────────────────────────────────────────
 BRANCH 2 (South Store)
-  URL:      https://app.YOURDOMAIN.com
+  URL:      https://packinglist.bakudanramen.com
   Username: user_b2
   Password: [SEED_STORE_PASS you used in Step 3]
   Role:     Receive and confirm orders at B2
 
 ─────────────────────────────────────────────────────
 BRANCH 3 (North Store)
-  URL:      https://app.YOURDOMAIN.com
+  URL:      https://packinglist.bakudanramen.com
   Username: user_b3
   Password: [SEED_STORE_PASS you used in Step 3]
   Role:     Create and ship orders from B3
 
 ─────────────────────────────────────────────────────
 ACCOUNTANT / FINANCE
-  URL:      https://app.YOURDOMAIN.com
+  URL:      https://packinglist.bakudanramen.com
   Username: accountant
   Password: [SEED_ACCT_PASS you used in Step 3]
   Role:     Pricing admin, summary reports, invoices
