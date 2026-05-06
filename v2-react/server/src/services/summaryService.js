@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Order, OrderLine, Store, Item, sequelize } = require('../../models');
+const { Order, OrderLine, Store, Item, sequelize } = require('../models');
 const { ORDER_STATUSES } = require('../config/app');
 
 class SummaryService {

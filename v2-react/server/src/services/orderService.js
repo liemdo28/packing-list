@@ -170,7 +170,6 @@ class OrderService {
       });
 
       if (!order) {
-        await t.rollback();
         throw new Error('Order not found');
       }
 
@@ -182,7 +181,6 @@ class OrderService {
 
       // ── Transition validation ─────────────────────────────────────────
       if (!canTransitionTo(order.status, newStatus)) {
-        await t.rollback();
         throw new Error(
           `Cannot transition order #${order.order_number} from '${order.status}' to '${newStatus}'`
         );
@@ -243,6 +241,10 @@ class OrderService {
 
   static async prepareOrder(orderId, userId) {
     return this._transition(orderId, ORDER_STATUSES.PROCESSING, userId);
+  }
+
+  static async markReadyToShip(orderId, userId) {
+    return this._transition(orderId, ORDER_STATUSES.READY_TO_SHIP, userId);
   }
 
   static async shipOrder(orderId, userId) {

@@ -7,7 +7,7 @@ import { createOrder } from '../../../api/orders';
 import Alert from '../../../components/Alert';
 import { useAuth } from '../../../hooks/useAuth';
 import { useFlash } from '../../../contexts/FlashContext';
-import { isValidTransfer, getAvailableSources } from '../../../utils/helpers';
+import { isValidTransfer, getAvailableSources, getDefaultFromStore, getDefaultToStore } from '../../../utils/helpers';
 
 export default function OrderCreatePage() {
   const navigate = useNavigate();
@@ -26,22 +26,49 @@ export default function OrderCreatePage() {
   useEffect(() => {
     Promise.all([
       getStores(),
-      getItems({ limit: 100, active: 'true' }),
+      getItems({ limit: 200, active: 'true' }),
     ]).then(([storesRes, itemsRes]) => {
-      setStores(storesRes.data.data);
-      setItems(itemsRes.data.data);
-      if (user?.store_id) {
-        setFromStoreId(String(user.store_id));
+      const allStores = storesRes.data.data;
+      const allItems  = itemsRes.data.data;
+      setStores(allStores);
+      setItems(allItems);
+
+      // Auto-set "to" = user's own store (locked for non-admin)
+      const defaultToCode = getDefaultToStore(user?.role);
+      if (defaultToCode) {
+        const toStore = allStores.find(s => s.code === defaultToCode);
+        if (toStore) setToStoreId(String(toStore.id));
+      }
+
+      // Auto-set "from" = first available source
+      const defaultFromCode = getDefaultFromStore(user?.role);
+      if (defaultFromCode) {
+        const fromStore = allStores.find(s => s.code === defaultFromCode);
+        if (fromStore) setFromStoreId(String(fromStore.id));
       }
     }).catch(console.error);
   }, [user]);
 
   const availableSources = getAvailableSources(user?.role);
   const fromStore = stores.find(s => s.id === parseInt(fromStoreId, 10));
+  const toStore   = stores.find(s => s.id === parseInt(toStoreId, 10));
+
+  // Items filtered by source store:
+  // - from B3 → only Noodles (Thick/Thin Noodle)
+  // - from B1 → all items except Noodles
+  const filteredItems = fromStore
+    ? fromStore.code === 'B3'
+      ? items.filter(i => i.category === 'Noodles')
+      : items.filter(i => i.category !== 'Noodles')
+    : items;
+
   const availableDestinations = stores.filter(s => {
     if (!fromStore) return false;
     return isValidTransfer(fromStore.code, s.code);
   });
+
+  // Non-admin: "to" is locked to own store
+  const toStoreLocked = user?.role !== 'admin' && user?.role !== 'accountant';
 
   const addLine = () => setLines([...lines, { item_id: '', quantity: 1, notes: '' }]);
 
@@ -94,22 +121,33 @@ export default function OrderCreatePage() {
           <h2 className="text-base font-semibold text-gray-900 mb-4">Transfer Details</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <label className="label-field">From Store</label>
-              <select value={fromStoreId} onChange={(e) => { setFromStoreId(e.target.value); setToStoreId(''); }} className="input-field mt-1" required>
+              <label className="label-field">From Store <span className="text-xs text-gray-400 font-normal">(nguồn hàng)</span></label>
+              <select
+                value={fromStoreId}
+                onChange={(e) => { setFromStoreId(e.target.value); setLines([{ item_id: '', quantity: 1, notes: '' }]); }}
+                className="input-field mt-1"
+                required
+              >
                 <option value="">Select source store</option>
-                {stores.filter(s => user?.role === 'admin' || availableSources.includes(s.code)).map(s => (
+                {stores.filter(s => user?.role === 'admin' || user?.role === 'accountant' || availableSources.includes(s.code)).map(s => (
                   <option key={s.id} value={s.id}>{s.code} - {s.name}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="label-field">To Store</label>
-              <select value={toStoreId} onChange={(e) => setToStoreId(e.target.value)} className="input-field mt-1" required disabled={!fromStoreId}>
-                <option value="">Select destination store</option>
-                {availableDestinations.map(s => (
-                  <option key={s.id} value={s.id}>{s.code} - {s.name}</option>
-                ))}
-              </select>
+              <label className="label-field">To Store <span className="text-xs text-gray-400 font-normal">(giao đến)</span></label>
+              {toStoreLocked ? (
+                <div className="input-field mt-1 bg-gray-50 text-gray-700 cursor-not-allowed">
+                  {toStore ? `${toStore.code} - ${toStore.name}` : 'Loading...'}
+                </div>
+              ) : (
+                <select value={toStoreId} onChange={(e) => setToStoreId(e.target.value)} className="input-field mt-1" required disabled={!fromStoreId}>
+                  <option value="">Select destination store</option>
+                  {availableDestinations.map(s => (
+                    <option key={s.id} value={s.id}>{s.code} - {s.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
           <div className="mt-4">
@@ -131,7 +169,7 @@ export default function OrderCreatePage() {
                 <div className="flex-1">
                   <select value={line.item_id} onChange={(e) => updateLine(idx, 'item_id', e.target.value)} className="input-field text-sm" required>
                     <option value="">Select item</option>
-                    {items.map(item => (
+                    {filteredItems.map(item => (
                       <option key={item.id} value={item.id}>{item.code} - {item.name} ({item.unit})</option>
                     ))}
                   </select>

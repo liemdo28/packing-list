@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../../config/database');
+const sequelize = require('../../../config/database');
 
 const PackingJob = sequelize.define('PackingJob', {
     name: { type: DataTypes.STRING, allowNull: false },

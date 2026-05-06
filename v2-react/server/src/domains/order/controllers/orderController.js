@@ -14,9 +14,9 @@ const {
   Store,
   Item,
   User,
-} = require('../../models');
-const OrderService = require('../../services/orderService');
-const { ORDER_STATUSES } = require('../../config/app');
+} = require('../../../models');
+const OrderService = require('../../../services/orderService');
+const { ORDER_STATUSES } = require('../../../config/app');
 
 const list = async (req, res) => {
   try {
@@ -179,6 +179,16 @@ const prepare = async (req, res) => {
   }
 };
 
+const markReady = async (req, res) => {
+  try {
+    const order = await OrderService.markReadyToShip(parseInt(req.params.id, 10), req.user.id);
+    res.json({ data: order });
+  } catch (error) {
+    console.error('Mark ready error:', error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
 const ship = async (req, res) => {
   try {
     const order = await OrderService.shipOrder(parseInt(req.params.id, 10), req.user.id);
@@ -196,11 +206,11 @@ const receive = async (req, res) => {
     const orderId = parseInt(req.params.id, 10);
 
     if (lines.length > 0) {
-      const t = await require('../../models').sequelize.transaction();
+      const t = await require('../../../models').sequelize.transaction();
       try {
         await Promise.all(
           lines.map((l) =>
-            require('../../models').OrderLine.update(
+            require('../../../models').OrderLine.update(
               { received_quantity: l.received_quantity },
               { where: { id: l.id, order_id: orderId }, transaction: t }
             )
@@ -248,5 +258,5 @@ const cancel = async (req, res) => {
 
 module.exports = {
   list, create, get, update,
-  submit, prepare, ship, receive, complete, cancel,
+  submit, prepare, markReady, ship, receive, complete, cancel,
 };

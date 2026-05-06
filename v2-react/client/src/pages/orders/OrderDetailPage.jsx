@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { getOrder, submitOrder, prepareOrder, shipOrder, receiveOrder, completeOrder, cancelOrder } from '../../api/orders';
@@ -7,6 +7,7 @@ import Alert from '../../components/Alert';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useAuth } from '../../hooks/useAuth';
+import { useAction } from '../../hooks/useAction';
 import { formatDateTime, formatCurrency } from '../../utils/formatters';
 import { canPerformAction } from '../../utils/helpers';
 import { STATUS_LABELS } from '../../utils/constants';
@@ -20,11 +21,13 @@ export default function OrderDetailPage() {
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+
+  const dispatcher = useCallback(async (fn, ...args) => fn(...args), []);
+  const { execute: runOrderAction, loading: actionLoading } = useAction(dispatcher);
 
   const fetchOrder = () => {
     setLoading(true);
@@ -39,30 +42,24 @@ export default function OrderDetailPage() {
   const handleAction = async (actionFn, label) => {
     setError('');
     setSuccess('');
-    setActionLoading(true);
     try {
-      await actionFn(id);
+      await runOrderAction(actionFn, id);
       setSuccess(`Order ${label} successfully`);
       fetchOrder();
     } catch (err) {
       setError(err.response?.data?.error || `Failed to ${label} order`);
-    } finally {
-      setActionLoading(false);
     }
   };
 
   const handleCancel = async () => {
     setError('');
-    setActionLoading(true);
     try {
-      await cancelOrder(id, { cancel_reason: cancelReason });
+      await runOrderAction(cancelOrder, id, { cancel_reason: cancelReason });
       setCancelDialogOpen(false);
       setSuccess('Order cancelled successfully');
       fetchOrder();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to cancel order');
-    } finally {
-      setActionLoading(false);
     }
   };
 

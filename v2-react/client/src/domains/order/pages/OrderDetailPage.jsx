@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import {
@@ -17,6 +17,7 @@ import LoadingSpinner from '../../../components/LoadingSpinner';
 import WorkflowPanel from '../../../components/WorkflowPanel';
 import EmptyState from '../../../components/EmptyState';
 import { useAuth } from '../../../hooks/useAuth';
+import { useAction } from '../../../hooks/useAction';
 import { formatDateTime, formatCurrency } from '../../../utils/formatters';
 import {
   getBlockedReason,
@@ -47,6 +48,9 @@ export default function OrderDetailPage() {
   const [confirmationAction, setConfirmationAction] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
 
+  const dispatcher = useCallback(async (fn, ...args) => fn(...args), []);
+  const { execute: dispatchAction } = useAction(dispatcher);
+
   function fetchOrder() {
     setLoading(true);
     getOrder(id)
@@ -73,7 +77,7 @@ export default function OrderDetailPage() {
       const payload = actionKey === 'cancel'
         ? { cancel_reason: cancelReason || 'Cancelled by user' }
         : {};
-      await ACTION_HANDLERS[actionKey](id, payload);
+      await dispatchAction(ACTION_HANDLERS[actionKey], id, payload);
       setSuccess(`Order ${actionKey === 'cancel' ? 'cancelled' : 'updated'} successfully.`);
       setConfirmationAction(null);
       setCancelReason('');

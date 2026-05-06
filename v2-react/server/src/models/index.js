@@ -1,18 +1,19 @@
 // Central barrel — imports from domain model locations
 const sequelize = require('../config/database');
-const Store = require('./domains/user/models/Store');
-const User = require('./domains/user/models/User');
-const Item = require('./domains/inventory/models/Item');
-const PriceMaster = require('./domains/inventory/models/PriceMaster');
-const Order = require('./domains/order/models/Order');
-const OrderLine = require('./domains/order/models/OrderLine');
-const Notification = require('./domains/notification/models/Notification');
-const Invoice = require('./domains/invoice/models/Invoice');
-const InvoiceLine = require('./domains/invoice/models/InvoiceLine');
-const AuditLog = require('./domains/audit/models/AuditLog');
-const PackingJob = require('./domains/packing/models/PackingJob');
-const PackingItem = require('./domains/packing/models/PackingItem');
-const { PackingTemplate, PackingTemplateItem } = require('./domains/packing/models/PackingTemplate');
+const Store = require('../domains/user/models/Store');
+const User = require('../domains/user/models/User');
+const RefreshToken = require('../domains/user/models/RefreshToken');
+const Item = require('../domains/inventory/models/Item');
+const PriceMaster = require('../domains/inventory/models/PriceMaster');
+const Order = require('../domains/order/models/Order');
+const OrderLine = require('../domains/order/models/OrderLine');
+const Notification = require('../domains/notification/models/Notification');
+const Invoice = require('../domains/invoice/models/Invoice');
+const InvoiceLine = require('../domains/invoice/models/InvoiceLine');
+const AuditLog = require('../domains/audit/models/AuditLog');
+const PackingJob = require('../domains/packing/models/PackingJob');
+const PackingItem = require('../domains/packing/models/PackingItem');
+const { PackingTemplate, PackingTemplateItem } = require('../domains/packing/models/PackingTemplate');
 
 // User <-> Store
 Store.hasMany(User, { foreignKey: 'store_id', as: 'users' });
@@ -51,6 +52,10 @@ InvoiceLine.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
 // AuditLog <-> User
 AuditLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
+// RefreshToken <-> User
+User.hasMany(RefreshToken, { foreignKey: 'user_id', as: 'refreshTokens' });
+RefreshToken.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
 // Packing associations
 PackingJob.belongsTo(Order, { foreignKey: 'order_id', as: 'order' });
 PackingJob.belongsTo(Store, { foreignKey: 'from_store_id', as: 'fromStore' });
@@ -70,6 +75,7 @@ module.exports = {
   sequelize,
   Store,
   User,
+  RefreshToken,
   Item,
   PriceMaster,
   Order,

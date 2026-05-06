@@ -3,9 +3,11 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const { authenticate } = require('../../../middleware/auth');
 const { validateLogin } = require('../../../middleware/validate');
+const { loginLimiter } = require('../../../middleware/rateLimiter');
 
-router.post('/login', validateLogin, authController.login);
-router.post('/logout', authenticate, authController.logout);
-router.get('/me', authenticate, authController.me);
+router.post('/login',   loginLimiter, validateLogin, authController.login);
+router.post('/refresh', authController.refresh);
+router.post('/logout',  authenticate, authController.logout);
+router.get('/me',       authenticate, authController.me);
 
 module.exports = router;

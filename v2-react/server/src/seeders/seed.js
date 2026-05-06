@@ -115,7 +115,7 @@ async function seed() {
       order_number: `PL-${dateStr}-002`,
       from_store_id: b1.id,
       to_store_id: b3.id,
-      status: 'shipped',
+      status: 'in_transit',
       notes: 'Urgent restocking',
       created_by: userB1.id,
       submitted_at: new Date(today - 3 * 86400000),

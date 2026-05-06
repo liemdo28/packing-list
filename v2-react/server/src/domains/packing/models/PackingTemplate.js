@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../../config/database');
+const sequelize = require('../../../config/database');
 
 const PackingTemplate = sequelize.define('PackingTemplate', {
     name: { type: DataTypes.STRING, allowNull: false },

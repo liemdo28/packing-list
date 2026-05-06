@@ -1,4 +1,4 @@
-const { Invoice, InvoiceLine, Store, Item, User, sequelize } = require('../../models');
+const { Invoice, InvoiceLine, Store, Item, User, sequelize } = require('../models');
 
 class InvoiceService {
   static async createInvoice({ invoiceData, lines, userId }) {

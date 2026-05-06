@@ -39,9 +39,8 @@ export function FlashProvider({ children }) {
   }, []);
 
   return (
-    <FlashContext.Provider value={{ flash }}>
+    <FlashContext.Provider value={{ flash, _messages: messages, _dismiss: dismiss }}>
       {children}
-      <FlashMessages messages={messages} onDismiss={dismiss} />
     </FlashContext.Provider>
   );
 }
@@ -56,7 +55,11 @@ export function useFlash() {
  * Renders a fixed stack of flash messages in the top-right corner.
  * Place <FlashMessages /> inside FlashProvider children (or in Layout).
  */
-export function FlashMessages({ messages, onDismiss }) {
+export function FlashMessages({ messages: propMessages, onDismiss: propDismiss }) {
+  // When used standalone inside FlashProvider (no props), read from context
+  const ctx = useContext(FlashContext);
+  const messages = propMessages ?? ctx?._messages ?? [];
+  const onDismiss = propDismiss ?? ctx?._dismiss ?? (() => {});
   if (!messages.length) return null;
 
   const colors = {

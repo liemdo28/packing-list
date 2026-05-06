@@ -1,0 +1,20 @@
+{
+  "name": "packing-monitoring",
+  "version": "1.0.0",
+  "description": "Production monitoring daemon — health checks, smoke tests, DB watchdog, backup, admin alerts",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "mysql2": "^3.6.5",
+    "nodemailer": "^6.9.7",
+    "node-cron": "^3.0.3",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
