@@ -6,8 +6,21 @@ const { getSession }      = require('../ai/session');
 const msgCount = new Map();
 setInterval(() => msgCount.clear(), 60_000);
 
+// Guard: validate message is non-empty before processing
+function isValidMessage(text) {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+  return trimmed.length > 0;
+}
+
 async function handleMessage(bot, msg) {
   if (!msg.text) return;
+
+  // Guard: reject empty/whitespace-only messages at entry point
+  if (!isValidMessage(msg.text)) {
+    bot.sendMessage(msg.chat.id, 'Please send a valid message (not empty or whitespace only).');
+    return;
+  }
 
   const telegramId = msg.from.id;
   const chatId     = msg.chat.id;

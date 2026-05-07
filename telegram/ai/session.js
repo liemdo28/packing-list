@@ -78,10 +78,20 @@ async function clearSession(telegramId) {
   await pool.query('DELETE FROM bot_messages WHERE telegram_id = ?', [telegramId]);
 }
 
+// Validate content is non-empty before storing
+function isValidContent(content) {
+  if (!content || typeof content !== 'string') return false;
+  return content.trim().length > 0;
+}
+
 async function addMessage(telegramId, role, content, intent = null) {
+  // Validate content - reject empty/whitespace-only content
+  if (!isValidContent(content)) {
+    throw new Error('Cannot store empty or whitespace-only message content');
+  }
   await pool.query(
     'INSERT INTO bot_messages (telegram_id, role, content, intent) VALUES (?, ?, ?, ?)',
-    [telegramId, role, content, intent]
+    [telegramId, role, content.trim(), intent]
   );
 }
 

@@ -1,6 +1,24 @@
 require('dotenv').config();
 
 const Anthropic = require('@anthropic-ai/sdk');
+
+// Validate content is non-empty before sending to AI
+function isValidContent(text) {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+  return trimmed.length > 0;
+}
+
+// Sanitize message content - ensure no empty content blocks
+function sanitizeMessages(messages) {
+  return messages.filter(m => {
+    if (!m.role || !m.content) return false;
+    if (Array.isArray(m.content)) {
+      return m.content.some(block => block.type !== 'text' || isValidContent(block.text));
+    }
+    return isValidContent(m.content);
+  });
+}
 const { TOOL_DEFINITIONS, executeTool } = require('./tools');
 const { classify, INTENT }             = require('./classifier');
 const { check }                        = require('./safety');
@@ -45,6 +63,11 @@ async function processMessage(telegramId, text) {
     return 'You are not logged in. Please use /login to connect your account.';
   }
 
+  // Validate input - reject empty/whitespace-only messages
+  if (!isValidContent(text)) {
+    return 'Please send a valid message (not empty or whitespace only).';
+  }
+
   // Check for pending dangerous action confirmation
   if (session.pending_action) {
     return await handlePendingConfirmation(telegramId, text, session);
@@ -61,7 +84,12 @@ async function processMessage(telegramId, text) {
   await addMessage(telegramId, 'user', text, intent);
 
   const history = await getHistory(telegramId);
-  const messages = history.map(m => ({ role: m.role, content: m.content }));
+  const messages = sanitizeMessages(history.map(m => ({ role: m.role, content: m.content })));
+
+  // Final validation before AI call - reject if no valid messages
+  if (messages.length === 0) {
+    return 'No valid conversation history. Please try again.';
+  }
 
   const response = await callClaude(messages, session);
   await addMessage(telegramId, 'assistant', response);
@@ -71,38 +99,52 @@ async function processMessage(telegramId, text) {
 async function callClaude(messages, session, depth = 0) {
   if (depth > 4) return 'I was unable to retrieve the information needed. Please try again or open the task screen.';
 
-  const res = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 512,
-    system: buildSystemPrompt(session),
-    tools: TOOL_DEFINITIONS,
-    messages,
+  // Log the request payload for debugging
+  console.log(`[callClaude] depth=${depth}, messages count=${messages.length}`);
+  messages.forEach((m, i) => {
+    const contentPreview = Array.isArray(m.content) 
+      ? JSON.stringify(m.content).substring(0, 100)
+      : String(m.content).substring(0, 100);
+    console.log(`  msg[${i}] role=${m.role}, content="${contentPreview}..."`);
   });
 
-  if (res.stop_reason === 'tool_use') {
-    const toolUseBlock = res.content.find(b => b.type === 'tool_use');
-    if (!toolUseBlock) return 'Something went wrong. Please try again.';
+  try {
+    const res = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
+      system: buildSystemPrompt(session),
+      tools: TOOL_DEFINITIONS,
+      messages,
+    });
 
-    const toolResult = await executeTool(toolUseBlock.name, toolUseBlock.input, session);
+    if (res.stop_reason === 'tool_use') {
+      const toolUseBlock = res.content.find(b => b.type === 'tool_use');
+      if (!toolUseBlock) return 'Something went wrong. Please try again.';
 
-    const nextMessages = [
-      ...messages,
-      { role: 'assistant', content: res.content },
-      {
-        role: 'user',
-        content: [{
-          type: 'tool_result',
-          tool_use_id: toolUseBlock.id,
-          content: String(toolResult),
-        }],
-      },
-    ];
+      const toolResult = await executeTool(toolUseBlock.name, toolUseBlock.input, session);
 
-    return callClaude(nextMessages, session, depth + 1);
+      const nextMessages = [
+        ...messages,
+        { role: 'assistant', content: res.content },
+        {
+          role: 'user',
+          content: [{
+            type: 'tool_result',
+            tool_use_id: toolUseBlock.id,
+            content: String(toolResult),
+          }],
+        },
+      ];
+
+      return callClaude(nextMessages, session, depth + 1);
+    }
+
+    const textBlock = res.content.find(b => b.type === 'text');
+    return textBlock?.text || 'No response generated.';
+  } catch (error) {
+    console.error('[callClaude] Error:', error.message);
+    return 'I encountered an error processing your request. Please try again.';
   }
-
-  const textBlock = res.content.find(b => b.type === 'text');
-  return textBlock?.text || 'No response generated.';
 }
 
 async function handlePendingConfirmation(telegramId, text, session) {

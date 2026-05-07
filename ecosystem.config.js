@@ -47,6 +47,21 @@ module.exports = {
       merge_logs: true,
     },
     {
+      // Cloudflare Tunnel — exposes localhost:3001 to packinglist.bakudanramen.com/api
+      name: 'packing-tunnel',
+      script: 'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
+      args:   'tunnel --no-autoupdate run',
+      interpreter: 'none',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '128M',
+      error_file: './logs/tunnel-error.log',
+      out_file:   './logs/tunnel-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
+    },
+    {
       name: 'packing-bot',
       cwd:  './telegram',
       script: 'index.js',
