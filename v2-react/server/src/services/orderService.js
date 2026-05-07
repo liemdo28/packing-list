@@ -107,7 +107,13 @@ class OrderService {
 
       await t.commit();
 
-      return this._findOrderWithRelations(order.id);
+      const created = await this._findOrderWithRelations(order.id);
+
+      // Notify supplier (from_store) immediately when a new order draft is created
+      NotificationService.notifyOrderStatusChange(created, 'submitted', userId)
+        .catch((err) => console.error('Notification error on create:', err.message));
+
+      return created;
     } catch (err) {
       await t.rollback();
       throw err;

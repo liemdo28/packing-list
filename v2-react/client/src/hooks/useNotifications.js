@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getUnreadCount } from '../api/notifications';
 import { useAuth } from './useAuth';
 
-export function useNotifications(pollInterval = 30000) {
+export function useNotifications(pollInterval = 10000) {
   const [unreadCount, setUnreadCount] = useState(0);
   const { isAuthenticated } = useAuth();
 
