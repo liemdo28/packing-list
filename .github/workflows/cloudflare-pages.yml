@@ -44,18 +44,18 @@ jobs:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/api' }}
           VITE_APP_URL: ${{ vars.VITE_APP_URL || 'https://packinglist.bakudanramen.com' }}
 
-      - name: Copy Cloudflare Functions into dist
-        run: cp -r functions v2-react/client/dist/functions
+      - name: Install Wrangler
+        run: npm install -g wrangler
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'packing-list-1' }}
-          directory: v2-react/client/dist
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          branch: master
+        run: |
+          wrangler pages deploy v2-react/client/dist \
+            --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT || 'packing-list-1' }} \
+            --branch=master \
+            --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   build-check:
     name: Build Verification
