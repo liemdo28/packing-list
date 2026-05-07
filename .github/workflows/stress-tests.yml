@@ -95,10 +95,10 @@ jobs:
           node src/index.js &
           echo "Waiting for API..."
           for i in {1..30}; do
-            curl -sf http://localhost:3001/api/auth/me > /dev/null 2>&1 && echo "API ready" && break || true
+            curl -sf http://localhost:3001/health > /dev/null 2>&1 && echo "API ready" && break || true
             sleep 1
           done
-          curl -s -o /dev/null -w "API HTTP status: %{http_code}\n" http://localhost:3001/api/auth/me
+          curl -s -o /dev/null -w "API HTTP status: %{http_code}\n" http://localhost:3001/health
         shell: bash
 
       - name: Install k6
@@ -219,7 +219,7 @@ jobs:
         run: |
           node src/index.js &
           for i in {1..30}; do
-            curl -sf http://localhost:3001/api/auth/me > /dev/null 2>&1 && break || true; sleep 1
+            curl -sf http://localhost:3001/health > /dev/null 2>&1 && break || true; sleep 1
           done
         shell: bash
 
@@ -310,7 +310,7 @@ jobs:
         run: |
           node src/index.js &
           for i in {1..30}; do
-            curl -sf http://localhost:3001/api/auth/me > /dev/null 2>&1 && break || true; sleep 1
+            curl -sf http://localhost:3001/health > /dev/null 2>&1 && break || true; sleep 1
           done
         shell: bash
 
