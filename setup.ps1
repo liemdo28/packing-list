@@ -792,12 +792,12 @@ $jsLines.Add("}; ")
 $jsLines | Set-Content -Path (Join-Path $REPO_DIR "ecosystem.windows.js") -Encoding UTF8
 
 Push-Location $REPO_DIR
-pm2 start ecosystem.windows.js
-pm2 save
+try { $null = & pm2 start ecosystem.windows.js --force 2>&1 } catch { }
+try { $null = & pm2 save 2>&1 } catch { }
 Pop-Location
 
 Write-Info "Registering PM2 as Windows startup service..."
-pm2-service-install -n PM2 --unattended 2>&1 | Out-Null
+try { $null = & pm2-service-install -n PM2 --unattended 2>&1 } catch { }
 Write-Ok "PM2 services running and registered for auto-start"
 
 # -- Step 10: Seed Database (after API is up and tables exist) -----------------
