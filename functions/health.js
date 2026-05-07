@@ -5,7 +5,7 @@
  * health check endpoint that proxies to the API server via tunnel.
  */
 
-const TUNNEL_BASE = 'https://api.bakudanramen.com';
+const TUNNEL_BASE = 'https://api.rawsushibar.com';
 
 export async function onRequest() {
   try {
