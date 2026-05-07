@@ -82,7 +82,7 @@ export default function App() {
 
         {/* Orders */}
         <Route path="orders" element={<OrderListPage />} />
-        <Route path="orders/new" element={<ProtectedRoute roles={['admin', 'b1', 'b3']}><OrderCreatePage /></ProtectedRoute>} />
+        <Route path="orders/new" element={<ProtectedRoute roles={['admin', 'b1', 'b2', 'b3']}><OrderCreatePage /></ProtectedRoute>} />
         <Route path="orders/:id" element={<OrderDetailPage />} />
 
         {/* Notifications */}

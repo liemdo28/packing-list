@@ -2,47 +2,72 @@ import { ROLE_LABELS, STATUS_LABELS, ORDER_STATUSES } from './constants';
 
 const ORDER_FLOW = [
   ORDER_STATUSES.DRAFT,
-  ORDER_STATUSES.SUBMITTED,
+  ORDER_STATUSES.SUPPLIER_REVIEWING,
+  ORDER_STATUSES.SUPPLIER_ACCEPTED,
   ORDER_STATUSES.PREPARING,
   ORDER_STATUSES.SHIPPING,
-  ORDER_STATUSES.RECEIVED,
+  ORDER_STATUSES.RECEIVING_REVIEW,
   ORDER_STATUSES.COMPLETED,
 ];
 
 const ACTION_CONFIG = {
   submit: {
-    label: 'Submit Order',
+    label: 'Submit to Supplier',
     success: 'submitted',
-    helper: 'Draft orders are editable until submitted.',
+    helper: 'Submits the order for the supplier store to review and confirm quantities.',
     riskLevel: 'normal',
+  },
+  accept: {
+    label: 'Review & Accept',
+    success: 'accepted',
+    helper: 'Review the requested quantities, adjust if needed, and accept the order.',
+    riskLevel: 'normal',
+    usesModal: true,
+  },
+  reject: {
+    label: 'Reject Order',
+    success: 'rejected',
+    helper: 'Reject this order if you cannot fulfill it.',
+    riskLevel: 'danger',
+    confirmation: {
+      title: 'Reject this order?',
+      confirmText: 'Reject Order',
+      description: 'This will notify the requesting store that their order cannot be fulfilled.',
+    },
   },
   prepare: {
     label: 'Start Preparing',
     success: 'moved to preparing',
-    helper: 'Start packing only when the order has been reviewed.',
+    helper: 'Start packing based on the confirmed quantities.',
     riskLevel: 'normal',
   },
   ship: {
-    label: 'Complete Preparing',
-    success: 'shipping',
-    helper: 'Mark as done packing — the order will move to Shipping so the receiver knows it is on the way.',
-    riskLevel: 'normal',
+    label: 'Mark as Shipped',
+    success: 'shipped',
+    helper: 'Confirm the items have been dispatched to the destination store.',
+    riskLevel: 'high',
+    confirmation: {
+      title: 'Ship this order?',
+      confirmText: 'Ship Order',
+      description: 'This marks the transfer as shipped and hands the next step to the destination store.',
+    },
   },
   receive: {
     label: 'Confirm Receipt',
     success: 'received',
-    helper: 'Only the destination store should confirm receipt of the items.',
+    helper: 'Enter the quantities you actually received and confirm receipt.',
     riskLevel: 'normal',
+    usesModal: true,
   },
   complete: {
     label: 'Complete Order',
     success: 'completed',
-    helper: 'Only completed orders affect summaries and freeze pricing.',
+    helper: 'Finalizes the order and locks pricing for reconciliation.',
     riskLevel: 'high',
     confirmation: {
       title: 'Complete this order?',
       confirmText: 'Complete Order',
-      description: 'This will freeze price snapshot and include the order in summary calculations.',
+      description: 'This will freeze the price snapshot and include the order in summary calculations.',
     },
   },
   cancel: {
@@ -69,7 +94,11 @@ const TRANSITION_RULES = {
     primary: 'submit',
     secondary: ['edit', 'cancel'],
   },
-  submitted: {
+  supplier_reviewing: {
+    primary: 'accept',
+    secondary: ['reject', 'cancel'],
+  },
+  supplier_accepted: {
     primary: 'prepare',
     secondary: ['cancel'],
   },
@@ -81,11 +110,19 @@ const TRANSITION_RULES = {
     primary: 'receive',
     secondary: [],
   },
-  received: {
+  receiving_review: {
     primary: 'complete',
     secondary: [],
   },
+  discrepancy_review: {
+    primary: 'complete',
+    secondary: ['cancel'],
+  },
   completed: {
+    primary: null,
+    secondary: [],
+  },
+  supplier_rejected: {
     primary: null,
     secondary: [],
   },
@@ -96,31 +133,34 @@ const TRANSITION_RULES = {
 };
 
 export function canPerformAction(userRole, orderStatus, action, order = null) {
-  const storeCode = order?.toStore?.code;
   const fromCode = order?.fromStore?.code;
+  const toCode = order?.toStore?.code;
 
   const permissions = {
-    submit:  { statuses: ['draft'],     roles: ['admin', 'b1', 'b3'] },
-    prepare: { statuses: ['submitted'], roles: ['admin', 'b1', 'b3'] },
-    ship:    { statuses: ['preparing'], roles: ['admin', 'b1', 'b3'] },
-    receive: { statuses: ['shipping'],  roles: ['admin', 'b1', 'b2', 'b3'] },
-    complete:{ statuses: ['received'],  roles: ['admin', 'b1', 'b2', 'b3', 'accountant'] },
-    cancel:  { statuses: ['draft', 'submitted', 'preparing'], roles: ['admin', 'b1', 'b3'] },
-    edit:    { statuses: ['draft'],     roles: ['admin', 'b1', 'b3'] },
+    // submit/edit: only the requester (to_store) can act on their own draft
+    submit:  { statuses: ['draft'],              roles: ['admin', 'b1', 'b2', 'b3'], side: 'to' },
+    edit:    { statuses: ['draft'],              roles: ['admin', 'b1', 'b2', 'b3'], side: 'to' },
+    // supplier-side actions
+    accept:  { statuses: ['supplier_reviewing'], roles: ['admin', 'b1', 'b3'], side: 'from' },
+    reject:  { statuses: ['supplier_reviewing'], roles: ['admin', 'b1', 'b3'], side: 'from' },
+    prepare: { statuses: ['supplier_accepted'],  roles: ['admin', 'b1', 'b3'], side: 'from' },
+    ship:    { statuses: ['preparing'],          roles: ['admin', 'b1', 'b3'], side: 'from' },
+    // destination-side actions
+    receive: { statuses: ['shipping'],           roles: ['admin', 'b1', 'b2', 'b3'], side: 'to' },
+    complete:{ statuses: ['receiving_review', 'discrepancy_review'], roles: ['admin', 'b1', 'b2', 'b3', 'accountant'], side: 'to' },
+    // cancel: any involved store (from or to) can cancel at early stages
+    cancel:  { statuses: ['draft', 'supplier_reviewing', 'supplier_accepted', 'preparing'], roles: ['admin', 'b1', 'b2', 'b3'], side: 'either' },
   };
 
   const perm = permissions[action];
   if (!perm) return false;
   if (!perm.statuses.includes(orderStatus) || !perm.roles.includes(userRole)) return false;
+  if (!order || userRole === 'admin' || userRole === 'accountant') return true;
 
-  if (!order) return true;
-
-  if ((action === 'receive' || action === 'complete') && ['b1', 'b2', 'b3'].includes(userRole)) {
-    return storeCode?.toLowerCase() === userRole;
-  }
-
-  if (['submit', 'prepare', 'ship', 'cancel', 'edit'].includes(action) && ['b1', 'b3'].includes(userRole)) {
-    return fromCode?.toLowerCase() === userRole;
+  if (['b1', 'b2', 'b3'].includes(userRole)) {
+    if (perm.side === 'from')   return fromCode?.toLowerCase() === userRole;
+    if (perm.side === 'to')     return toCode?.toLowerCase() === userRole;
+    if (perm.side === 'either') return fromCode?.toLowerCase() === userRole || toCode?.toLowerCase() === userRole;
   }
 
   return true;
@@ -128,22 +168,34 @@ export function canPerformAction(userRole, orderStatus, action, order = null) {
 
 export function getBlockedReason(user, order) {
   if (!order) return null;
-  if (order.status === ORDER_STATUSES.COMPLETED) return 'Completed orders are locked and no longer editable.';
-  if (order.status === ORDER_STATUSES.CANCELLED) return 'Cancelled orders are locked. Create a new order if work must continue.';
-  if (order.status === ORDER_STATUSES.SHIPPING && order.toStore?.code?.toLowerCase() !== user?.role && ['b1', 'b2', 'b3'].includes(user?.role)) {
-    return 'Only the destination store can confirm receipt of this order.';
+  if (order.status === ORDER_STATUSES.COMPLETED) return 'Completed orders are locked.';
+  if (order.status === ORDER_STATUSES.CANCELLED) return 'Cancelled orders are locked. Create a new order if needed.';
+  if (order.status === ORDER_STATUSES.SUPPLIER_REJECTED) return 'This order was rejected by the supplier. Create a new order to try again.';
+
+  const role = user?.role;
+  const fromCode = order?.fromStore?.code?.toLowerCase();
+  const toCode = order?.toStore?.code?.toLowerCase();
+
+  if (['supplier_reviewing', 'supplier_accepted', 'preparing'].includes(order.status)) {
+    if (['b1', 'b3'].includes(role) && fromCode !== role) {
+      return `Only ${order.fromStore?.code} staff can continue this step.`;
+    }
   }
-  if (order.status === ORDER_STATUSES.RECEIVED && order.toStore?.code?.toLowerCase() !== user?.role && ['b1', 'b2', 'b3'].includes(user?.role)) {
-    return 'Only the destination store can complete this order.';
+  if (['shipping'].includes(order.status)) {
+    if (['b1', 'b2', 'b3'].includes(role) && toCode !== role) {
+      return `Only ${order.toStore?.code} staff can receive this order.`;
+    }
   }
-  if (['draft', 'submitted', 'preparing'].includes(order.status) && order.fromStore?.code?.toLowerCase() !== user?.role && ['b1', 'b3'].includes(user?.role)) {
-    return 'Only the sending store can continue this workflow step.';
+  if (['receiving_review', 'discrepancy_review'].includes(order.status)) {
+    if (['b1', 'b2', 'b3'].includes(role) && toCode !== role) {
+      return `Only ${order.toStore?.code} staff can complete this step.`;
+    }
   }
 
   const transition = TRANSITION_RULES[order.status];
   if (transition?.primary) {
-    const action = ACTION_CONFIG[transition.primary];
-    return `${action.label} is the next workflow step once the correct store opens this order.`;
+    const actionCfg = ACTION_CONFIG[transition.primary];
+    return `${actionCfg.label} is the next workflow step once the correct store opens this order.`;
   }
 
   return null;
@@ -180,7 +232,7 @@ export function getRecommendedMessage(order, user) {
 
   if (primary) {
     return {
-      tone: primary.riskLevel === 'high' ? 'warning' : 'info',
+      tone: primary.riskLevel === 'high' ? 'warning' : primary.riskLevel === 'danger' ? 'error' : 'info',
       title: `Next action: ${primary.label}`,
       description: primary.helper,
     };
@@ -195,20 +247,24 @@ export function getRecommendedMessage(order, user) {
 
 export function getWorkflowSteps(order) {
   const timestamps = {
-    draft: order?.created_at,
-    submitted: order?.submitted_at,
-    preparing: order?.prepared_at,
-    shipping: order?.shipped_at,
-    received: order?.received_at,
-    completed: order?.completed_at,
+    draft:               order?.created_at,
+    supplier_reviewing:  order?.submitted_at,
+    supplier_accepted:   order?.accepted_at,
+    preparing:           order?.prepared_at,
+    shipping:            order?.shipped_at,
+    receiving_review:    order?.received_at,
+    completed:           order?.completed_at,
   };
 
   const currentIndex = ORDER_FLOW.indexOf(order?.status);
+  const isTerminal = ['cancelled', 'supplier_rejected'].includes(order?.status);
 
   return ORDER_FLOW.map((step, index) => ({
     key: step,
     label: STATUS_LABELS[step],
-    state: index < currentIndex ? 'complete' : index === currentIndex ? 'current' : 'upcoming',
+    state: isTerminal
+      ? (timestamps[step] ? 'complete' : 'upcoming')
+      : index < currentIndex ? 'complete' : index === currentIndex ? 'current' : 'upcoming',
     timestamp: timestamps[step] || null,
     actorLabel: index === 0 ? order?.creator?.full_name || 'System' : timestamps[step] ? 'Recorded' : null,
   }));
@@ -218,7 +274,7 @@ export function getRoleDashboardConfig(user) {
   const configs = {
     admin: {
       headline: 'Oversee operational flow, exceptions, and reconciliations.',
-      helper: 'Focus on blocked transfers, delayed work, and final reporting quality.',
+      helper: 'Focus on blocked transfers, discrepancies, and final reporting quality.',
     },
     accountant: {
       headline: 'Review completed work, summaries, and finance-impacting exceptions.',
@@ -226,7 +282,7 @@ export function getRoleDashboardConfig(user) {
     },
     b1: {
       headline: 'Create outgoing transfers, prepare shipments, and track what B1 has sent.',
-      helper: 'Your highest-value work is drafting, preparing, and shipping orders from B1.',
+      helper: 'Your highest-value work is drafting, accepting, preparing, and shipping orders from B1.',
     },
     b2: {
       headline: 'Receive incoming work and confirm transfers safely for B2.',
@@ -234,7 +290,7 @@ export function getRoleDashboardConfig(user) {
     },
     b3: {
       headline: 'Manage B3 transfers and keep outgoing orders moving without delays.',
-      helper: 'Your main work is creating, preparing, shipping, and receiving B3-related orders.',
+      helper: 'Your main work is accepting, preparing, shipping, and receiving B3-related orders.',
     },
   };
 
@@ -254,12 +310,13 @@ export function getAttentionCards(orders, user) {
     drafts: (order) => order.status === 'draft' && (role === 'admin' || order.fromStore?.code?.toLowerCase() === ownStore),
     waitingForMe: (order) => Boolean(getPrimaryAction(order, user)),
     incoming: (order) => order.status === 'shipping' && order.toStore?.code?.toLowerCase() === ownStore,
-    needsConfirmation: (order) => order.status === 'received' && (role === 'admin' || order.toStore?.code?.toLowerCase() === ownStore),
+    needsReview: (order) => ['supplier_reviewing'].includes(order.status) && (role === 'admin' || order.fromStore?.code?.toLowerCase() === ownStore),
+    needsConfirmation: (order) => ['receiving_review', 'discrepancy_review'].includes(order.status) && (role === 'admin' || order.toStore?.code?.toLowerCase() === ownStore),
+    discrepancies: (order) => order.status === 'discrepancy_review',
     stuck: (order) => {
       const updatedAt = new Date(order.updated_at || order.created_at).getTime();
-      return Date.now() - updatedAt > 1000 * 60 * 60 * 24 * 2 && !['completed', 'cancelled'].includes(order.status);
+      return Date.now() - updatedAt > 1000 * 60 * 60 * 24 * 2 && !['completed', 'cancelled', 'supplier_rejected'].includes(order.status);
     },
-    problems: (order) => order.status === 'cancelled',
   };
 
   const cards = [
@@ -275,13 +332,21 @@ export function getAttentionCards(orders, user) {
       key: 'incoming',
       title: 'Incoming Shipments',
       description: 'Shipped orders heading to your store and waiting for receipt.',
-      count: isOperator ? orders.filter(filters.incoming).length : orders.filter((order) => order.status === 'shipping').length,
+      count: isOperator ? orders.filter(filters.incoming).length : orders.filter((o) => o.status === 'shipping').length,
       color: 'bg-sky-50 text-sky-900 ring-sky-200',
       query: { statusGroup: 'incoming' },
     },
     {
+      key: 'discrepancies',
+      title: 'Discrepancies',
+      description: 'Orders with quantity differences that need resolution.',
+      count: orders.filter(filters.discrepancies).length,
+      color: 'bg-amber-50 text-amber-900 ring-amber-200',
+      query: { statusGroup: 'discrepancy' },
+    },
+    {
       key: 'needsConfirmation',
-      title: 'Need Confirmation',
+      title: 'Need Completion',
       description: 'Received orders waiting for a final completion step.',
       count: orders.filter(filters.needsConfirmation).length,
       color: 'bg-violet-50 text-violet-900 ring-violet-200',
@@ -305,7 +370,7 @@ export function getAttentionCards(orders, user) {
     },
   ];
 
-  return cards.filter((card) => role !== 'accountant' || ['needsConfirmation', 'stuck', 'incoming'].includes(card.key));
+  return cards.filter((card) => role !== 'accountant' || ['needsConfirmation', 'stuck', 'incoming', 'discrepancies'].includes(card.key));
 }
 
 export function getOrderListGroups(orders, user) {
@@ -313,23 +378,30 @@ export function getOrderListGroups(orders, user) {
     {
       key: 'needs-my-action',
       label: 'Needs My Action',
-      helper: 'The system is showing only orders where you can take the next valid step.',
+      helper: 'Orders where you can take the next valid step right now.',
       empty: 'You currently have no actions pending.',
       filter: (order) => Boolean(getPrimaryAction(order, user)),
     },
     {
       key: 'in-progress',
       label: 'In Progress',
-      helper: 'Orders that are active but not yet waiting on another store.',
-      empty: 'No active transfers are currently moving through your workflow.',
-      filter: (order) => ['submitted', 'preparing', 'received'].includes(order.status),
+      helper: 'Active orders moving through the workflow.',
+      empty: 'No active transfers are currently moving through the workflow.',
+      filter: (order) => ['supplier_reviewing', 'supplier_accepted', 'preparing', 'receiving_review'].includes(order.status),
     },
     {
       key: 'incoming',
       label: 'Waiting on Other Store',
-      helper: 'Track transfers that are moving but need another store to continue.',
+      helper: 'Transfers moving but needing another store to continue.',
       empty: 'No transfers are currently waiting on another store.',
       filter: (order) => order.status === 'shipping',
+    },
+    {
+      key: 'discrepancy',
+      label: 'Discrepancy Review',
+      helper: 'Orders with quantity discrepancies that need admin resolution.',
+      empty: 'No discrepancy orders at this time.',
+      filter: (order) => order.status === 'discrepancy_review',
     },
     {
       key: 'completed',
@@ -341,9 +413,9 @@ export function getOrderListGroups(orders, user) {
     {
       key: 'problems',
       label: 'Problems',
-      helper: 'Cancelled or long-inactive work that may need intervention.',
+      helper: 'Cancelled, rejected, or long-inactive work that may need intervention.',
       empty: 'No blocked or risky orders detected right now.',
-      filter: (order) => order.status === 'cancelled' || isOrderDelayed(order),
+      filter: (order) => ['cancelled', 'supplier_rejected'].includes(order.status) || isOrderDelayed(order),
     },
     {
       key: 'drafts',
@@ -359,15 +431,15 @@ export function getOrderListGroups(orders, user) {
 
 export function isOrderDelayed(order) {
   const updatedAt = new Date(order.updated_at || order.created_at).getTime();
-  return Date.now() - updatedAt > 1000 * 60 * 60 * 24 * 2 && !['completed', 'cancelled'].includes(order.status);
+  return Date.now() - updatedAt > 1000 * 60 * 60 * 24 * 2 && !['completed', 'cancelled', 'supplier_rejected'].includes(order.status);
 }
 
 export function getOrderRowInsights(order, user) {
   const primary = getPrimaryAction(order, user);
 
   return {
-    nextAction: primary?.label || (order.status === 'completed' ? 'Done' : 'Waiting'),
-    riskLabel: order.status === 'cancelled' ? 'Blocked' : isOrderDelayed(order) ? 'Delayed' : null,
+    nextAction: primary?.label || (['completed'].includes(order.status) ? 'Done' : 'Waiting'),
+    riskLabel: ['cancelled', 'supplier_rejected'].includes(order.status) ? 'Blocked' : isOrderDelayed(order) ? 'Delayed' : null,
     guidance: primary?.helper || getBlockedReason(user, order),
   };
 }

@@ -119,43 +119,42 @@ function toCode(index) {
 async function run() {
   const t = await sequelize.transaction();
   try {
-    console.log('Clearing existing items and prices...');
-    // Disable FK checks to allow truncate, then re-enable
-    await sequelize.query('SET FOREIGN_KEY_CHECKS = 0', { transaction: t });
-    await PriceMaster.destroy({ where: {}, transaction: t });
-    await Item.destroy({ where: {}, transaction: t });
-    await sequelize.query('SET FOREIGN_KEY_CHECKS = 1', { transaction: t });
+    console.log('Upserting items (preserving existing IDs)...');
+
+    // Upsert by code — never delete, so existing order_lines stay valid
+    const created = [];
+    for (let i = 0; i < ITEMS.length; i++) {
+      const item = ITEMS[i];
+      const code = toCode(i);
+      const [record] = await Item.findOrCreate({
+        where: { code },
+        defaults: { code, name: item.name, unit: item.unit, category: item.category, is_active: true },
+        transaction: t,
+      });
+      // Update fields in case they changed
+      await record.update({ name: item.name, unit: item.unit, category: item.category, is_active: true }, { transaction: t });
+      created.push(record);
+    }
 
     console.log(`Inserting ${ITEMS.length} items...`);
-    const created = await Promise.all(
-      ITEMS.map((item, i) =>
-        Item.create({
-          code: toCode(i),
-          name: item.name,
-          unit: item.unit,
-          category: item.category,
-          is_active: true,
-        }, { transaction: t })
-      )
-    );
 
     console.log('Creating price_master entries...');
-    const priceRows = created
-      .map((item, i) => ({ item, price: ITEMS[i].price }))
-      .filter(({ price }) => price > 0)
-      .map(({ item, price }) => ({
-        item_id:        item.id,
-        price,
-        effective_date: TODAY,
-        end_date:       null,
-        is_active:      true,
-      }));
-
-    await PriceMaster.bulkCreate(priceRows, { transaction: t });
+    // Upsert prices — deactivate old then set latest active
+    let priceCount = 0;
+    for (let i = 0; i < created.length; i++) {
+      const price = ITEMS[i].price;
+      if (!price || price <= 0) continue;
+      const item = created[i];
+      // Deactivate existing active prices for this item
+      await PriceMaster.update({ is_active: false }, { where: { item_id: item.id, is_active: true }, transaction: t });
+      // Insert new active price
+      await PriceMaster.create({ item_id: item.id, price, effective_date: TODAY, end_date: null, is_active: true }, { transaction: t });
+      priceCount++;
+    }
 
     await t.commit();
     console.log(`\n✓ Imported ${created.length} items`);
-    console.log(`✓ Created ${priceRows.length} price entries`);
+    console.log(`✓ Upserted ${priceCount} price entries`);
 
     const cats = {};
     ITEMS.forEach(i => { cats[i.category] = (cats[i.category] || 0) + 1; });

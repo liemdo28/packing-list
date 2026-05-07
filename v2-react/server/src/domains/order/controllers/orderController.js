@@ -170,22 +170,38 @@ const submit = async (req, res) => {
   }
 };
 
+const accept = async (req, res) => {
+  try {
+    const { lines = [], note } = req.body;
+    const order = await OrderService.acceptOrder(
+      parseInt(req.params.id, 10), req.user.id, { lines, note }
+    );
+    res.json({ data: order });
+  } catch (error) {
+    console.error('Accept order error:', error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const reject = async (req, res) => {
+  try {
+    const { reason, note } = req.body;
+    const order = await OrderService.rejectOrder(
+      parseInt(req.params.id, 10), req.user.id, { reason, note }
+    );
+    res.json({ data: order });
+  } catch (error) {
+    console.error('Reject order error:', error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
 const prepare = async (req, res) => {
   try {
     const order = await OrderService.prepareOrder(parseInt(req.params.id, 10), req.user.id);
     res.json({ data: order });
   } catch (error) {
     console.error('Prepare order error:', error);
-    res.status(400).json({ error: error.message });
-  }
-};
-
-const markReady = async (req, res) => {
-  try {
-    const order = await OrderService.markReadyToShip(parseInt(req.params.id, 10), req.user.id);
-    res.json({ data: order });
-  } catch (error) {
-    console.error('Mark ready error:', error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -202,29 +218,9 @@ const ship = async (req, res) => {
 
 const receive = async (req, res) => {
   try {
-    // Persist received quantities before the state transition
-    const lines = req.body.lines || [];
+    const { lines = [], note } = req.body;
     const orderId = parseInt(req.params.id, 10);
-
-    if (lines.length > 0) {
-      const t = await require('../../../models').sequelize.transaction();
-      try {
-        await Promise.all(
-          lines.map((l) =>
-            require('../../../models').OrderLine.update(
-              { received_quantity: l.received_quantity },
-              { where: { id: l.id, order_id: orderId }, transaction: t }
-            )
-          )
-        );
-        await t.commit();
-      } catch (err) {
-        await t.rollback();
-        throw err;
-      }
-    }
-
-    const order = await OrderService.receiveOrder(orderId, req.user.id);
+    const order = await OrderService.receiveOrder(orderId, req.user.id, { lines, note });
     res.json({ data: order });
   } catch (error) {
     console.error('Receive order error:', error);
@@ -259,5 +255,5 @@ const cancel = async (req, res) => {
 
 module.exports = {
   list, create, get, update,
-  submit, prepare, markReady, ship, receive, complete, cancel,
+  submit, accept, reject, prepare, ship, receive, complete, cancel,
 };

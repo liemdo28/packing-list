@@ -121,7 +121,7 @@ export default function OrderCreatePage() {
           <h2 className="text-base font-semibold text-gray-900 mb-4">Transfer Details</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <label className="label-field">From Store <span className="text-xs text-gray-400 font-normal">(nguồn hàng)</span></label>
+              <label className="label-field">From Store <span className="text-xs text-gray-400 font-normal">(supplier)</span></label>
               <select
                 value={fromStoreId}
                 onChange={(e) => { setFromStoreId(e.target.value); setLines([{ item_id: '', quantity: 1, notes: '' }]); }}
@@ -135,7 +135,7 @@ export default function OrderCreatePage() {
               </select>
             </div>
             <div>
-              <label className="label-field">To Store <span className="text-xs text-gray-400 font-normal">(giao đến)</span></label>
+              <label className="label-field">To Store <span className="text-xs text-gray-400 font-normal">(destination)</span></label>
               {toStoreLocked ? (
                 <div className="input-field mt-1 bg-gray-50 text-gray-700 cursor-not-allowed">
                   {toStore ? `${toStore.code} - ${toStore.name}` : 'Loading...'}
@@ -178,8 +178,8 @@ export default function OrderCreatePage() {
             {lines.map((line, idx) => (
               <div key={idx} className="flex gap-3 items-start p-3 rounded-lg bg-gray-50">
                 <div className="flex-1">
-                  <select value={line.item_id} onChange={(e) => updateLine(idx, 'item_id', e.target.value)} className="input-field text-sm" required>
-                    <option value="">Select item</option>
+                  <select value={line.item_id} onChange={(e) => updateLine(idx, 'item_id', e.target.value)} className="input-field text-sm" required disabled={!fromStoreId}>
+                    <option value="">{!fromStoreId ? 'Select a source store first' : filteredItems.length === 0 ? 'No items available for this route' : 'Select item'}</option>
                     {filteredItems.map(item => (
                       <option key={item.id} value={item.id}>{item.code} - {item.name} ({item.unit})</option>
                     ))}

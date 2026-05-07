@@ -27,8 +27,29 @@ const OrderLine = sequelize.define('OrderLine', {
     type: DataTypes.DECIMAL(12, 2),
     allowNull: true,
   },
+  confirmed_quantity: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
   received_quantity: {
     type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+  supplier_note: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  receiver_note: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  discrepancy_reason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  item_status: {
+    type: DataTypes.ENUM('pending', 'confirmed', 'adjusted', 'short', 'missing'),
+    defaultValue: 'pending',
     allowNull: true,
   },
   notes: {

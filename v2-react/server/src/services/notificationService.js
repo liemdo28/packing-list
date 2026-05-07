@@ -450,83 +450,209 @@ async function notifyOrderStatusChange(order, newStatus, userId) {
     // Ignore - use default actor name
   }
 
-  const statusMessages = {
-    submitted:  { title: 'Order Submitted',  severity: SEVERITY.MEDIUM },
-    preparing:  { title: 'Order Preparing',  severity: SEVERITY.MEDIUM },
-    shipping:   { title: 'Order Shipped',    severity: SEVERITY.MEDIUM },
-    received:   { title: 'Order Received',   severity: SEVERITY.HIGH   },
-    completed:  { title: 'Order Completed',  severity: SEVERITY.LOW    },
-    cancelled:  { title: 'Order Cancelled',  severity: SEVERITY.HIGH   },
-  };
-
-  const statusInfo = statusMessages[newStatus] || { title: 'Order Updated', severity: SEVERITY.MEDIUM };
-
   const fromStore = await order.getFromStore();
   const toStore = await order.getToStore();
 
-  // Notify the to-store (destination) when order progresses through early stages
-  if (['submitted', 'preparing', 'completed'].includes(newStatus)) {
-    await notifyStore(toStore?.id, toStore?.name, {
-      orderId: order.id,
-      orderNumber: order.order_number,
-      eventType: `order_${newStatus}`,
-      title: statusInfo.title,
-      message: `Order #${order.order_number} is now: ${statusInfo.title}`,
-      type: NOTIF_TYPES.ORDER,
-      severity: statusInfo.severity,
-      sourceStore: { id: fromStore?.id, name: fromStore?.name },
-      actorUser,
-      deepLinkUrl: `/orders/${order.id}`,
-    });
-  }
+  const base = {
+    orderId: order.id,
+    orderNumber: order.order_number,
+    type: NOTIF_TYPES.ORDER,
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  };
 
-  // When shipped — notify the destination store (incoming shipment)
-  if (newStatus === 'shipping') {
-    await notifyStore(toStore?.id, toStore?.name, {
-      orderId: order.id,
-      orderNumber: order.order_number,
-      eventType: EVENT_TYPES.ORDER_SHIPPED,
-      title: '📦 Incoming Shipment',
-      message: `Order #${order.order_number} is on the way from ${fromStore?.name || 'sender'}`,
-      type: NOTIF_TYPES.SHIPMENT,
-      severity: SEVERITY.MEDIUM,
-      sourceStore: { id: fromStore?.id, name: fromStore?.name },
-      targetStore: { id: toStore?.id, name: toStore?.name },
-      actorUser,
-      deepLinkUrl: `/orders/${order.id}`,
-    });
-  }
+  switch (newStatus) {
+    case 'submitted':
+    case 'supplier_reviewing':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_REVIEWING,
+        title: 'New Order Request',
+        message: `${toStore?.name || 'Destination store'} requested items from ${fromStore?.name || 'source store'}. Please review and accept or reject.`,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+        metadata: { actionRequiredByStoreId: fromStore?.id },
+      });
+      await notifyAdmins({
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_REVIEWING,
+        title: 'Order Waiting for Supplier Review',
+        message: `Order #${order.order_number} is waiting for ${fromStore?.name || 'source store'} to review.`,
+        severity: SEVERITY.LOW,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      break;
 
-  // When received — notify the from-store (sender confirmation)
-  if (newStatus === 'received') {
-    await notifyStore(fromStore?.id, fromStore?.name, {
-      orderId: order.id,
-      orderNumber: order.order_number,
-      eventType: EVENT_TYPES.ORDER_RECEIVED,
-      title: 'Order Received',
-      message: `Order #${order.order_number} has been received at ${toStore?.name || 'destination'}`,
-      type: NOTIF_TYPES.SHIPMENT,
-      severity: SEVERITY.MEDIUM,
-      sourceStore: { id: toStore?.id, name: toStore?.name },
-      targetStore: { id: fromStore?.id, name: fromStore?.name },
-      actorUser,
-      deepLinkUrl: `/orders/${order.id}`,
-    });
-  }
+    case 'supplier_accepted':
+      await notifyStore(toStore?.id, toStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_ACCEPTED,
+        title: 'Order Accepted',
+        message: `${fromStore?.name || 'Source store'} accepted Order #${order.order_number}.`,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
 
-  // Alert admins on completion/cancellation
-  if (['completed', 'cancelled'].includes(newStatus)) {
-    await notifyAdmins({
-      orderId: order.id,
-      orderNumber: order.order_number,
-      eventType: `order_${newStatus}`,
-      title: statusInfo.title,
-      message: `Order #${order.order_number} has been ${newStatus}`,
-      type: NOTIF_TYPES.ORDER,
-      severity: statusInfo.severity,
-      sourceStore: { id: fromStore?.id, name: fromStore?.name },
-      targetStore: { id: toStore?.id, name: toStore?.name },
-    });
+    case 'supplier_rejected':
+      await notifyStore(toStore?.id, toStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_REJECTED,
+        title: 'Order Rejected',
+        message: `${fromStore?.name || 'Source store'} rejected Order #${order.order_number}.`,
+        type: NOTIF_TYPES.ALERT,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      await notifyAdmins({
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_REJECTED,
+        title: 'Order Rejected',
+        message: `Order #${order.order_number} was rejected by ${fromStore?.name || 'source store'}.`,
+        type: NOTIF_TYPES.ALERT,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
+
+    case 'preparing':
+      await notifyStore(toStore?.id, toStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.PREPARING_STARTED,
+        title: 'Order Preparing',
+        message: `${fromStore?.name || 'Source store'} started preparing Order #${order.order_number}.`,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
+
+    case 'shipping':
+    case 'in_transit':
+    case 'shipped':
+      await notifyStore(toStore?.id, toStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.ORDER_SHIPPED,
+        title: 'Incoming Shipment',
+        message: `Order #${order.order_number} is on the way from ${fromStore?.name || 'source store'}.`,
+        type: NOTIF_TYPES.SHIPMENT,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
+
+    case 'receiving_review':
+    case 'received':
+    case 'received_pending_confirmation':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.ORDER_RECEIVED,
+        title: 'Order Received',
+        message: `${toStore?.name || 'Destination store'} received Order #${order.order_number}.`,
+        type: NOTIF_TYPES.SHIPMENT,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      break;
+
+    case 'discrepancy_review':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.DISCREPANCY_DETECTED,
+        title: 'Receiving Discrepancy',
+        message: `${toStore?.name || 'Destination store'} reported a discrepancy on Order #${order.order_number}.`,
+        type: NOTIF_TYPES.DISCREPANCY,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      await notifyAdmins({
+        ...base,
+        eventType: EVENT_TYPES.DISCREPANCY_DETECTED,
+        title: 'Discrepancy Alert',
+        message: `Order #${order.order_number} has a receiving discrepancy.`,
+        type: NOTIF_TYPES.DISCREPANCY,
+        severity: SEVERITY.CRITICAL,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      break;
+
+    case 'completed':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.ORDER_COMPLETED,
+        title: 'Order Completed',
+        message: `Order #${order.order_number} has been completed.`,
+        severity: SEVERITY.LOW,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      if (fromStore?.id !== toStore?.id) {
+        await notifyStore(toStore?.id, toStore?.name, {
+          ...base,
+          eventType: EVENT_TYPES.ORDER_COMPLETED,
+          title: 'Order Completed',
+          message: `Order #${order.order_number} has been completed.`,
+          severity: SEVERITY.LOW,
+          sourceStore: { id: fromStore?.id, name: fromStore?.name },
+          targetStore: { id: toStore?.id, name: toStore?.name },
+        });
+      }
+      await notifyAdmins({
+        ...base,
+        eventType: EVENT_TYPES.ORDER_COMPLETED,
+        title: 'Order Completed',
+        message: `Order #${order.order_number} has been completed.`,
+        severity: SEVERITY.LOW,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
+
+    case 'cancelled':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.ORDER_CANCELLED,
+        title: 'Order Cancelled',
+        message: `Order #${order.order_number} has been cancelled.`,
+        type: NOTIF_TYPES.ALERT,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      if (fromStore?.id !== toStore?.id) {
+        await notifyStore(toStore?.id, toStore?.name, {
+          ...base,
+          eventType: EVENT_TYPES.ORDER_CANCELLED,
+          title: 'Order Cancelled',
+          message: `Order #${order.order_number} has been cancelled.`,
+          type: NOTIF_TYPES.ALERT,
+          severity: SEVERITY.HIGH,
+          sourceStore: { id: fromStore?.id, name: fromStore?.name },
+          targetStore: { id: toStore?.id, name: toStore?.name },
+        });
+      }
+      break;
+
+    default:
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: `order_${newStatus}`,
+        title: 'Order Updated',
+        message: `Order #${order.order_number} changed to ${newStatus}.`,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      break;
   }
 }
 

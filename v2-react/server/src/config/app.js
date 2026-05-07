@@ -6,24 +6,29 @@ const TRANSFER_RULES = [
 ];
 
 const ORDER_STATUSES = {
-  DRAFT: 'draft',
-  SUBMITTED: 'submitted',
-  PREPARING: 'preparing',   // source store is packing
-  SHIPPING: 'shipping',     // sender completed prep — items on the way
-  RECEIVED: 'received',     // destination store confirmed receipt
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled',
+  DRAFT:              'draft',
+  SUPPLIER_REVIEWING: 'supplier_reviewing',
+  SUPPLIER_ACCEPTED:  'supplier_accepted',
+  PREPARING:          'preparing',
+  SHIPPING:           'shipping',
+  RECEIVING_REVIEW:   'receiving_review',
+  DISCREPANCY_REVIEW: 'discrepancy_review',
+  COMPLETED:          'completed',
+  SUPPLIER_REJECTED:  'supplier_rejected',
+  CANCELLED:          'cancelled',
 };
 
 const STATUS_TRANSITIONS = {
-  // [current]: [allowed next states]
-  [ORDER_STATUSES.DRAFT]:      [ORDER_STATUSES.SUBMITTED, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.SUBMITTED]:  [ORDER_STATUSES.PREPARING, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.PREPARING]:  [ORDER_STATUSES.SHIPPING,  ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.SHIPPING]:   [ORDER_STATUSES.RECEIVED],
-  [ORDER_STATUSES.RECEIVED]:   [ORDER_STATUSES.COMPLETED],
-  [ORDER_STATUSES.COMPLETED]:  [],
-  [ORDER_STATUSES.CANCELLED]:  [],
+  draft:               ['supplier_reviewing', 'cancelled'],
+  supplier_reviewing:  ['supplier_accepted', 'supplier_rejected', 'cancelled'],
+  supplier_accepted:   ['preparing', 'cancelled'],
+  preparing:           ['shipping'],
+  shipping:            ['receiving_review'],
+  receiving_review:    ['completed', 'discrepancy_review'],
+  discrepancy_review:  ['completed', 'cancelled'],
+  completed:           [],
+  supplier_rejected:   [],
+  cancelled:           [],
 };
 
 const ROLES = {

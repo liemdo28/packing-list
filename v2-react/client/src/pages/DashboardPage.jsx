@@ -65,7 +65,7 @@ export default function DashboardPage() {
 
   const roleConfig = getRoleDashboardConfig(user);
   const attentionCards = getAttentionCards(orders, user);
-  const activeOrders = orders.filter((order) => ['draft', 'submitted', 'preparing', 'shipping', 'received'].includes(order.status));
+  const activeOrders = orders.filter((order) => !['completed', 'cancelled', 'supplier_rejected'].includes(order.status));
   const priorityOrders = activeOrders
     .filter((order) => getPrimaryAction(order, user))
     .slice(0, 5);

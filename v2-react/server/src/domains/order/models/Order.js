@@ -22,18 +22,41 @@ const Order = sequelize.define('Order', {
   },
   status: {
     type: DataTypes.ENUM(
+      // new canonical statuses
       'draft',
-      'submitted',
+      'supplier_reviewing',
+      'supplier_accepted',
       'preparing',
       'shipping',
-      'received',
+      'receiving_review',
+      'discrepancy_review',
       'completed',
-      'cancelled'
+      'supplier_rejected',
+      'cancelled',
+      // legacy — keep until all in-flight orders are migrated
+      'submitted',
+      'processing',
+      'ready_to_ship',
+      'in_transit',
+      'received_pending_confirmation',
+      'disputed'
     ),
     defaultValue: 'draft',
   },
-  recipient_name: {
-    type: DataTypes.STRING(100),
+  ready_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  accepted_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  rejected_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  supplier_note: {
+    type: DataTypes.TEXT,
     allowNull: true,
   },
   notes: {
