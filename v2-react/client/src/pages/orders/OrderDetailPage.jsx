@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline';
-import { getOrder, submitOrder, prepareOrder, receiveOrder, completeOrder, cancelOrder } from '../../api/orders';
+import { getOrder, submitOrder, prepareOrder, shipOrder, receiveOrder, completeOrder, cancelOrder } from '../../api/orders';
 import Badge from '../../components/Badge';
 import Alert from '../../components/Alert';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -12,7 +12,7 @@ import { formatDateTime, formatCurrency } from '../../utils/formatters';
 import { canPerformAction } from '../../utils/helpers';
 import { STATUS_LABELS } from '../../utils/constants';
 
-const TIMELINE_STEPS = ['draft', 'submitted', 'preparing', 'received', 'completed'];
+const TIMELINE_STEPS = ['draft', 'submitted', 'preparing', 'shipping', 'received', 'completed'];
 
 export default function OrderDetailPage() {
   const { id } = useParams();

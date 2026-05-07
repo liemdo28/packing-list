@@ -72,13 +72,14 @@ const list = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const { from_store_id, to_store_id, lines, notes } = req.body;
+    const { from_store_id, to_store_id, lines, notes, recipient_name } = req.body;
 
     const order = await OrderService.createOrder({
       fromStoreId: from_store_id,
       toStoreId: to_store_id,
       lines,
       notes,
+      recipientName: recipient_name || null,
       userId: req.user.id,
     });
 

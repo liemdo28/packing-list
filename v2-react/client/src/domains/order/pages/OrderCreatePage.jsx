@@ -19,6 +19,7 @@ export default function OrderCreatePage() {
   const [fromStoreId, setFromStoreId] = useState('');
   const [toStoreId, setToStoreId] = useState('');
   const [notes, setNotes] = useState('');
+  const [recipientName, setRecipientName] = useState('');
   const [lines, setLines] = useState([{ item_id: '', quantity: 1, notes: '' }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -94,6 +95,7 @@ export default function OrderCreatePage() {
         from_store_id: parseInt(fromStoreId, 10),
         to_store_id: parseInt(toStoreId, 10),
         notes,
+        recipient_name: recipientName.trim() || undefined,
         lines: validLines.map(l => ({
           item_id: parseInt(l.item_id, 10),
           quantity: parseFloat(l.quantity),
@@ -147,6 +149,17 @@ export default function OrderCreatePage() {
                 </select>
               )}
             </div>
+          </div>
+          <div className="mt-4">
+            <label className="label-field">Recipient Name <span className="text-gray-400 font-normal">(optional — who will receive at destination)</span></label>
+            <input
+              type="text"
+              value={recipientName}
+              onChange={(e) => setRecipientName(e.target.value)}
+              className="input-field mt-1"
+              placeholder="e.g. Nguyễn Văn A"
+              maxLength={100}
+            />
           </div>
           <div className="mt-4">
             <label className="label-field">Notes</label>

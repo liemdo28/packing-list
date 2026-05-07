@@ -5,6 +5,7 @@ import {
   getOrder,
   submitOrder,
   prepareOrder,
+  shipOrder,
   receiveOrder,
   completeOrder,
   cancelOrder,
@@ -29,6 +30,7 @@ import {
 const ACTION_HANDLERS = {
   submit: (id) => submitOrder(id),
   prepare: (id) => prepareOrder(id),
+  ship: (id) => shipOrder(id),
   receive: (id) => receiveOrder(id),
   complete: (id) => completeOrder(id),
   cancel: (id, payload) => cancelOrder(id, payload),
@@ -156,6 +158,36 @@ export default function OrderDetailPage() {
       </section>
 
       <WorkflowPanel steps={timeline} message={workflowMessage} />
+
+      {/* Incoming shipment banner — visible to destination store when status=shipping */}
+      {order.status === 'shipping' && (
+        <div className="rounded-2xl border border-purple-200 bg-purple-50 p-5 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="flex-1">
+              <p className="text-sm font-semibold uppercase tracking-wide text-purple-700">📦 Incoming Shipment</p>
+              <p className="mt-1 text-base font-semibold text-gray-900">
+                {order.fromStore?.code} ({order.fromStore?.name}) is delivering this order to {order.toStore?.code}
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 text-sm text-gray-700">
+                <div>
+                  <span className="font-medium text-gray-500">Sent by: </span>
+                  {order.creator?.full_name}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-500">Prepared at: </span>
+                  {order.shipped_at ? new Date(order.shipped_at).toLocaleString() : '—'}
+                </div>
+                {order.recipient_name && (
+                  <div className="sm:col-span-2 rounded-xl bg-white px-4 py-2 ring-1 ring-purple-200">
+                    <span className="font-medium text-purple-700">Recipient: </span>
+                    <span className="font-semibold text-gray-900">{order.recipient_name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <div className="space-y-6">
@@ -291,6 +323,16 @@ export default function OrderDetailPage() {
               <div className="flex items-center justify-between gap-4">
                 <dt className="text-gray-500">Submitted</dt>
                 <dd className="font-medium text-gray-900">{formatDateTime(order.submitted_at)}</dd>
+              </div>
+              {order.recipient_name && (
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-gray-500">Recipient</dt>
+                  <dd className="font-medium text-gray-900">{order.recipient_name}</dd>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-gray-500">Preparing done</dt>
+                <dd className="font-medium text-gray-900">{formatDateTime(order.shipped_at)}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <dt className="text-gray-500">Received</dt>

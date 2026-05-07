@@ -158,6 +158,7 @@ export default function OrderListPage() {
             <option value="draft">Draft</option>
             <option value="submitted">Submitted</option>
             <option value="preparing">Preparing</option>
+            <option value="shipping">Shipping</option>
             <option value="received">Received</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>

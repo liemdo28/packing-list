@@ -25,11 +25,16 @@ const Order = sequelize.define('Order', {
       'draft',
       'submitted',
       'preparing',
+      'shipping',
       'received',
       'completed',
       'cancelled'
     ),
     defaultValue: 'draft',
+  },
+  recipient_name: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
   },
   notes: {
     type: DataTypes.TEXT,

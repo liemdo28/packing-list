@@ -80,7 +80,7 @@ class OrderService {
    * Create a new draft order.
    * Full create runs inside a transaction; order number locked to avoid duplicates.
    */
-  static async createOrder({ fromStoreId, toStoreId, lines, notes, userId }) {
+  static async createOrder({ fromStoreId, toStoreId, lines, notes, recipientName, userId }) {
     await this.validateTransfer(fromStoreId, toStoreId);
 
     const t = await sequelize.transaction();
@@ -93,6 +93,7 @@ class OrderService {
         to_store_id: toStoreId,
         status: ORDER_STATUSES.DRAFT,
         notes,
+        recipient_name: recipientName || null,
         created_by: userId,
       }, { transaction: t });
 
@@ -196,6 +197,9 @@ class OrderService {
         case ORDER_STATUSES.PREPARING:
           updateData.prepared_at = new Date();
           break;
+        case ORDER_STATUSES.SHIPPING:
+          updateData.shipped_at = new Date();
+          break;
         case ORDER_STATUSES.RECEIVED:
           updateData.received_at = new Date();
           break;
@@ -232,6 +236,10 @@ class OrderService {
 
   static async prepareOrder(orderId, userId) {
     return this._transition(orderId, ORDER_STATUSES.PREPARING, userId);
+  }
+
+  static async shipOrder(orderId, userId) {
+    return this._transition(orderId, ORDER_STATUSES.SHIPPING, userId);
   }
 
   static async receiveOrder(orderId, userId, lines = []) {
