@@ -95,11 +95,12 @@ async function handleLoginFlow(bot, msg) {
 
   if (state.step === 'password') {
     loginState.delete(telegramId);
+    console.log(`[login] Attempting login for user: ${state.username} via API: ${API_BASE}/api/auth/login`);
     try {
       const res = await axios.post(`${API_BASE}/api/auth/login`, {
         username: state.username,
         password: text,
-      });
+      }, { timeout: 10000 });
       const { token, user } = res.data.data;
       await upsertSession(telegramId, {
         user_id:   user.id,
@@ -112,7 +113,17 @@ async function handleLoginFlow(bot, msg) {
         `✅ Logged in as ${user.full_name} (${user.role.toUpperCase()})\n\nYou can now ask me about your tasks and orders.`
       );
     } catch (err) {
-      const errMsg = err.response?.data?.error || 'Login failed';
+      console.error(`[login] Error: ${err.message}`, err.response?.data);
+      let errMsg = 'Login failed';
+      if (err.code === 'ECONNREFUSED') {
+        errMsg = 'Cannot connect to server. Please check API_BASE_URL configuration.';
+      } else if (err.code === 'ENOTFOUND') {
+        errMsg = 'API server not found. Please check API_BASE_URL.';
+      } else if (err.response?.data?.error) {
+        errMsg = err.response.data.error;
+      } else if (err.message) {
+        errMsg = `Error: ${err.message}`;
+      }
       bot.sendMessage(msg.chat.id, `❌ ${errMsg}\n\nUse /login to try again.`);
     }
     return true;
