@@ -47,11 +47,11 @@ module.exports = {
       merge_logs: true,
     },
     {
-      // Cloudflare Tunnel — exposes localhost:3001 to packinglist.bakudanramen.com/api
-      // Locally-managed tunnel (CLI-created) so config.yml ingress rules take effect
+      // Cloudflare Tunnel — exposes localhost:3001 via api.bakudanramen.com
+      // Dashboard tunnel uses remote ingress (api.bakudanramen.com → localhost:3001)
       name: 'packing-tunnel',
       script: 'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
-      args:   'tunnel --no-autoupdate --protocol http2 run packing-local',
+      args:   'tunnel --no-autoupdate --protocol http2 run --token eyJhIjoiZDYwNzdlMjdlNTQxNjE2Mjg3ZGRiNTBjZmJiZTk3YWMiLCJzIjoidGk3dHd3U2doSWpxV25LM0g0cnJ2Z3BPQUJmUFVBRWUxNzB0YzdxRlpJYz0iLCJ0IjoiNWMzMTM4MDQtOWQ4ZC00MmVmLTlmYTktOTBjNGQ4MTQ3MThmIn0=',
       interpreter: 'none',
       instances: 1,
       autorestart: true,
