@@ -17,7 +17,7 @@ const EVENT_TYPES = {
   ORDER_SHIPPED: 'order_shipped',
   RECEIVING_STARTED: 'receiving_started',
   DISCREPANCY_DETECTED: 'discrepancy_detected',
-  ORDER_RECEIVED: 'order_received',
+  ORDER_RECEIVED:  'order_received',
   ORDER_COMPLETED: 'order_completed',
   ORDER_CANCELLED: 'order_cancelled',
   ORDER_DELAYED: 'order_delayed',
@@ -443,13 +443,12 @@ async function notifyOrderStatusChange(order, newStatus, userId) {
   }
 
   const statusMessages = {
-    submitted: { title: 'Order Submitted', severity: SEVERITY.MEDIUM },
-    preparing: { title: 'Order Preparing', severity: SEVERITY.MEDIUM },
-    ready_to_ship: { title: 'Ready to Ship', severity: SEVERITY.MEDIUM },
-    in_transit: { title: 'Order Shipped', severity: SEVERITY.MEDIUM },
-    received_pending_confirmation: { title: 'Received - Awaiting Confirmation', severity: SEVERITY.HIGH },
-    completed: { title: 'Order Completed', severity: SEVERITY.LOW },
-    cancelled: { title: 'Order Cancelled', severity: SEVERITY.HIGH },
+    submitted:  { title: 'Order Submitted',  severity: SEVERITY.MEDIUM },
+    preparing:  { title: 'Order Preparing',  severity: SEVERITY.MEDIUM },
+    shipping:   { title: 'Order Shipped',    severity: SEVERITY.MEDIUM },
+    received:   { title: 'Order Received',   severity: SEVERITY.HIGH   },
+    completed:  { title: 'Order Completed',  severity: SEVERITY.LOW    },
+    cancelled:  { title: 'Order Cancelled',  severity: SEVERITY.HIGH   },
   };
 
   const statusInfo = statusMessages[newStatus] || { title: 'Order Updated', severity: SEVERITY.MEDIUM };
@@ -457,8 +456,8 @@ async function notifyOrderStatusChange(order, newStatus, userId) {
   const fromStore = await order.getFromStore();
   const toStore = await order.getToStore();
 
-  // Notify requester store on status changes
-  if (['submitted', 'preparing', 'ready_to_ship', 'in_transit', 'completed'].includes(newStatus)) {
+  // Notify the to-store (destination) when order progresses through early stages
+  if (['submitted', 'preparing', 'completed'].includes(newStatus)) {
     await notifyStore(toStore?.id, toStore?.name, {
       orderId: order.id,
       orderNumber: order.order_number,
@@ -473,12 +472,29 @@ async function notifyOrderStatusChange(order, newStatus, userId) {
     });
   }
 
-  // Notify supplier store on receiving
-  if (newStatus === 'received_pending_confirmation') {
+  // When shipped — notify the destination store (incoming shipment)
+  if (newStatus === 'shipping') {
+    await notifyStore(toStore?.id, toStore?.name, {
+      orderId: order.id,
+      orderNumber: order.order_number,
+      eventType: EVENT_TYPES.ORDER_SHIPPED,
+      title: '📦 Incoming Shipment',
+      message: `Order #${order.order_number} is on the way from ${fromStore?.name || 'sender'}`,
+      type: NOTIF_TYPES.SHIPMENT,
+      severity: SEVERITY.MEDIUM,
+      sourceStore: { id: fromStore?.id, name: fromStore?.name },
+      targetStore: { id: toStore?.id, name: toStore?.name },
+      actorUser,
+      deepLinkUrl: `/orders/${order.id}`,
+    });
+  }
+
+  // When received — notify the from-store (sender confirmation)
+  if (newStatus === 'received') {
     await notifyStore(fromStore?.id, fromStore?.name, {
       orderId: order.id,
       orderNumber: order.order_number,
-      eventType: 'receiving_started',
+      eventType: EVENT_TYPES.ORDER_RECEIVED,
       title: 'Order Received',
       message: `Order #${order.order_number} has been received at ${toStore?.name || 'destination'}`,
       type: NOTIF_TYPES.SHIPMENT,
