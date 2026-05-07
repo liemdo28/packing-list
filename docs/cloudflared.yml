@@ -1,0 +1,62 @@
+# Cloudflare Tunnel config — api.bakudanramen.com → localhost:3001
+#
+# Setup steps (run once on the central PC):
+#
+#   1. Install cloudflared:
+#        curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
+#          -o cloudflared.deb
+#        sudo dpkg -i cloudflared.deb
+#
+#   2. Authenticate with your Cloudflare account:
+#        cloudflared tunnel login
+#      (opens browser — pick the bakudanramen.com zone)
+#
+#   3. Create the tunnel (one-time):
+#        cloudflared tunnel create packing-api
+#      Note the tunnel UUID printed — replace <TUNNEL-UUID> below.
+#
+#   4. Copy this file to ~/.cloudflared/config.yml and fill in the UUID:
+#        mkdir -p ~/.cloudflared
+#        cp /opt/packing-list/docs/cloudflared.yml ~/.cloudflared/config.yml
+#        nano ~/.cloudflared/config.yml
+#
+#   5. Create the DNS CNAME (one-time — routes api.bakudanramen.com → tunnel):
+#        cloudflared tunnel route dns packing-api api.bakudanramen.com
+#      This writes a CNAME record automatically in your Cloudflare zone.
+#
+#   6. Run the tunnel:
+#        cloudflared tunnel run packing-api
+#
+#   7. Install as a systemd service (auto-start on reboot):
+#        sudo cloudflared service install
+#        sudo systemctl enable cloudflared
+#        sudo systemctl start cloudflared
+#
+#   8. Verify:
+#        curl https://api.bakudanramen.com/health
+#        # Expected: {"status":"ok","db":{"status":"ok"},...}
+
+tunnel: <TUNNEL-UUID>
+credentials-file: /root/.cloudflared/<TUNNEL-UUID>.json
+
+ingress:
+  # Health endpoints — proxy directly, no auth
+  - hostname: api.bakudanramen.com
+    path: /health
+    service: http://localhost:3001
+
+  - hostname: api.bakudanramen.com
+    path: /health/db
+    service: http://localhost:3001
+
+  - hostname: api.bakudanramen.com
+    path: /health/full
+    service: http://localhost:3001
+
+  # All API routes
+  - hostname: api.bakudanramen.com
+    path: /api
+    service: http://localhost:3001
+
+  # Catch-all (required by cloudflared)
+  - service: http_status:404
