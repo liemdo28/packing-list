@@ -28,6 +28,21 @@ export default function LoginPage() {
     }
   };
 
+  const handleQuickLogin = async (user) => {
+    setError('');
+    setLoading(true);
+    setUsername(user);
+    setPassword('password');
+    try {
+      await login(user, 'password');
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100 px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
@@ -112,7 +127,7 @@ export default function LoginPage() {
                 <button
                   key={user}
                   type="button"
-                  onClick={() => { setUsername(user); setPassword(''); setShowPassword(false); }}
+                  onClick={() => handleQuickLogin(user)}
                   className="rounded-lg border border-gray-200 px-3 py-2 text-gray-600 hover:bg-gray-50 hover:border-primary-300 transition-colors text-left"
                 >
                   <span className="font-medium">{label}</span>
