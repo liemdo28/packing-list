@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { LockClosedIcon, ReceiptPercentIcon } from '@heroicons/react/24/outline';
+import { LockClosedIcon, ReceiptPercentIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import Alert from '../components/Alert';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -57,15 +58,27 @@ export default function LoginPage() {
             </div>
             <div>
               <label htmlFor="password" className="label-field">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field mt-1"
-                placeholder="Enter your password"
-                required
-              />
+              <div className="relative mt-1">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-field pr-10"
+                  placeholder="Enter your password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600"
+                  tabIndex={-1}
+                >
+                  {showPassword
+                    ? <EyeSlashIcon className="h-5 w-5" />
+                    : <EyeIcon className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
@@ -87,7 +100,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8 border-t border-gray-200 pt-6">
-            <p className="text-xs font-medium text-gray-500 mb-3 text-center">Demo Accounts</p>
+            <p className="text-xs font-medium text-gray-500 mb-3 text-center">Quick Fill Username</p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               {[
                 { user: 'admin', label: 'Admin' },
@@ -99,7 +112,7 @@ export default function LoginPage() {
                 <button
                   key={user}
                   type="button"
-                  onClick={() => { setUsername(user); setPassword('password'); }}
+                  onClick={() => { setUsername(user); setPassword(''); setShowPassword(false); }}
                   className="rounded-lg border border-gray-200 px-3 py-2 text-gray-600 hover:bg-gray-50 hover:border-primary-300 transition-colors text-left"
                 >
                   <span className="font-medium">{label}</span>
