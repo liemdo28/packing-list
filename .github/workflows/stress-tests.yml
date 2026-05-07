@@ -1,11 +1,8 @@
 name: Stress Tests
 
 on:
-  # Smoke + concurrency run on every push to staging
   push:
-    branches:
-      - master
-  # Full suite runs on manual trigger or schedule
+    branches: [master]
   workflow_dispatch:
     inputs:
       test_suite:
@@ -15,11 +12,9 @@ on:
         type: choice
         options:
           - smoke+concurrency
-          - full (all tests)
-          - soak-only (60-min nightly)
-
+          - full
+          - soak-only
   schedule:
-    # Run soak test nightly at 2 AM UTC
     - cron: '0 2 * * *'
 
 env:
@@ -28,13 +23,24 @@ env:
   DB_USER: root
   DB_PASSWORD: password
 
+# ─── Reusable setup snippet (embedded per-job — each runner is isolated) ─────
+# Each job that needs the API must start its own MySQL service + API server.
+# Jobs cannot share a running process across GitHub Actions runner boundaries.
+
 jobs:
   # ────────────────────────────────────────────────────────────────────────────
-  # Job 1: Spin up infrastructure (DB + API server)
+  # Core tests: smoke + concurrency + order-flow + summary
+  # Runs on every push. Single job = single runner = shared DB + API process.
   # ────────────────────────────────────────────────────────────────────────────
-  setup:
-    name: Setup infrastructure
+  test-core:
+    name: Core Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: >
+      github.event_name == 'push' ||
+      github.event.inputs.test_suite == 'smoke+concurrency' ||
+      github.event.inputs.test_suite == 'full' ||
+      github.event.inputs.test_suite == ''
 
     services:
       mysql:
@@ -51,246 +57,190 @@ jobs:
           - 3306:3306
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: v2-react/server/package-lock.json
 
       - name: Install server dependencies
         working-directory: v2-react/server
         run: npm ci
 
-      - name: Setup environment
+      - name: Write .env
         run: |
-          cat > v2-react/server/.env << EOF
+          cat > v2-react/server/.env << 'EOF'
           NODE_ENV=test
           DB_HOST=127.0.0.1
           DB_PORT=3306
           DB_NAME=${{ env.DB_NAME }}
           DB_USER=${{ env.DB_USER }}
           DB_PASS=${{ env.DB_PASSWORD }}
-          JWT_SECRET=${{ secrets.JWT_SECRET || 'test-jwt-secret-for-stress-test' }}
+          JWT_SECRET=${{ secrets.JWT_SECRET || 'ci-test-jwt-secret' }}
           PORT=3001
           CORS_ORIGIN=http://localhost:5173
           EOF
 
-      - name: Run migrations
+      - name: Migrate and seed database
         working-directory: v2-react/server
-        run: npm run migrate
+        run: |
+          npm run migrate
+          npm run seed
 
-      - name: Seed database
-        working-directory: v2-react/server
-        run: npm run seed
-
-      - name: Start API server (background)
+      - name: Start API server
         working-directory: v2-react/server
         run: |
           node src/index.js &
-          echo "Waiting for API to be ready..."
+          echo "Waiting for API..."
           for i in {1..30}; do
-            curl -s http://localhost:3001/api/auth/me && break
+            curl -sf http://localhost:3001/api/auth/me > /dev/null 2>&1 && echo "API ready" && break || true
             sleep 1
           done
+          curl -s -o /dev/null -w "API HTTP status: %{http_code}\n" http://localhost:3001/api/auth/me
         shell: bash
 
-      - name: Verify API is up
-        run: |
-          curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/auth/me
-          # Expects 401 (not logged in) — means API is running
-          echo ""
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # Job 2a: Smoke tests (fast — runs on every push)
-  # ────────────────────────────────────────────────────────────────────────────
-  smoke:
-    name: Smoke Tests
-    needs: setup
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Install k6
         run: |
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
           echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
             | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update && sudo apt-get install -y k6
 
-      - name: Run smoke test
+      - name: Create reports directory
+        run: mkdir -p stress/reports
+
+      - name: Smoke test
         env:
           BASE_URL: http://localhost:3001/api
-          ADMIN_EMAIL: admin@restaurant.com
+          ADMIN_USER: admin
           ADMIN_PASSWORD: password
-        run: |
-          k6 run \
-            --out json="stress/reports/smoke.json" \
-            stress/k6/smoke.js
+        run: k6 run --out json=stress/reports/smoke.json stress/k6/smoke.js
 
-      - name: Upload smoke report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-report
-          path: stress/reports/smoke.json
-          retention-days: 7
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # Job 2b: Same-order concurrency test (critical — runs on every push)
-  # ────────────────────────────────────────────────────────────────────────────
-  concurrency:
-    name: Concurrency Test
-    needs: setup
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install k6
-        run: |
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update && sudo apt-get install -y k6
-
-      - name: Run concurrency test (20 VUs, 30s, complete action)
+      - name: Concurrency test (20 VUs, complete action)
         env:
           BASE_URL: http://localhost:3001/api
-          ADMIN_EMAIL: admin@restaurant.com
+          ADMIN_USER: admin
           ADMIN_PASSWORD: password
           ACTION: complete
           CONCURRENT_USERS: '20'
-        run: |
-          k6 run \
-            --out json="stress/reports/concurrency-complete.json" \
-            stress/k6/same-order-concurrency.js
+        run: k6 run --out json=stress/reports/concurrency-complete.json stress/k6/same-order-concurrency.js
 
-      - name: Run DB integrity checks
-        env:
-          MYSQL_PASSWORD: ${{ env.DB_PASSWORD }}
+      - name: DB integrity check after concurrency
         run: |
-          mysql -u root -p"$MYSQL_PASSWORD" ${{ env.DB_NAME }} \
+          mysql -u root -p"${{ env.DB_PASSWORD }}" ${{ env.DB_NAME }} \
             < stress/sql/integrity-checks.sql
 
-      - name: Upload concurrency report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: concurrency-report
-          path: stress/reports/concurrency-*.json
-          retention-days: 7
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # Job 2c: Order flow load test (runs on every push)
-  # ────────────────────────────────────────────────────────────────────────────
-  order-flow:
-    name: Order Flow Load Test
-    needs: setup
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install k6
-        run: |
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update && sudo apt-get install -y k6
-
-      - name: Run order flow load test
+      - name: Order flow load test
         env:
           BASE_URL: http://localhost:3001/api
-          ADMIN_EMAIL: admin@restaurant.com
+          ADMIN_USER: admin
           ADMIN_PASSWORD: password
-        run: k6 run --out json="stress/reports/order-flow.json" stress/k6/order-flow.js
+        run: k6 run --out json=stress/reports/order-flow.json stress/k6/order-flow.js
 
-      - name: Upload order flow report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: order-flow-report
-          path: stress/reports/order-flow.json
-          retention-days: 7
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # Job 2d: Summary load test (runs on every push)
-  # ────────────────────────────────────────────────────────────────────────────
-  summary:
-    name: Summary Load Test
-    needs: setup
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install k6
-        run: |
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [deb signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update && sudo apt-get install -y k6
-
-      - name: Run summary load test
+      - name: Summary load test
         env:
           BASE_URL: http://localhost:3001/api
-          ADMIN_EMAIL: admin@restaurant.com
+          ADMIN_USER: admin
           ADMIN_PASSWORD: password
           YEAR: '2026'
           MONTH: '4'
-        run: k6 run --out json="stress/reports/summary-load.json" stress/k6/summary-load.js
+        run: k6 run --out json=stress/reports/summary-load.json stress/k6/summary-load.js
 
-      - name: Upload summary report
+      - name: Upload core reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: summary-report
-          path: stress/reports/summary-load.json
+          name: core-reports
+          path: stress/reports/
           retention-days: 7
 
   # ────────────────────────────────────────────────────────────────────────────
-  # Job 3: Export load test (only on manual/full trigger)
+  # Export load test — manual full suite only
+  # Self-contained: starts its own MySQL service + API
   # ────────────────────────────────────────────────────────────────────────────
   export-load:
     name: Export Load Test
-    needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event.inputs.test_suite == 'full' || github.event.inputs.test_suite == ''
+    if: github.event.inputs.test_suite == 'full'
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ env.DB_PASSWORD }}
+          MYSQL_DATABASE: ${{ env.DB_NAME }}
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 3306:3306
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: v2-react/server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: v2-react/server
+        run: npm ci
+
+      - name: Write .env
+        run: |
+          cat > v2-react/server/.env << 'EOF'
+          NODE_ENV=test
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_NAME=${{ env.DB_NAME }}
+          DB_USER=${{ env.DB_USER }}
+          DB_PASS=${{ env.DB_PASSWORD }}
+          JWT_SECRET=ci-test-jwt-secret
+          PORT=3001
+          CORS_ORIGIN=http://localhost:5173
+          EOF
+
+      - name: Migrate and seed
+        working-directory: v2-react/server
+        run: npm run migrate && npm run seed
+
+      - name: Start API server
+        working-directory: v2-react/server
+        run: |
+          node src/index.js &
+          for i in {1..30}; do
+            curl -sf http://localhost:3001/api/auth/me > /dev/null 2>&1 && break || true; sleep 1
+          done
+        shell: bash
 
       - name: Install k6
         run: |
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
           echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
             | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update && sudo apt-get install -y k6
 
-      - name: Run export load test
+      - name: Export load test
         env:
           BASE_URL: http://localhost:3001/api
-          ADMIN_EMAIL: admin@restaurant.com
+          ADMIN_USER: admin
           ADMIN_PASSWORD: password
-        run: k6 run --out json="stress/reports/export-load.json" stress/k6/export-load.js
+        run: |
+          mkdir -p stress/reports
+          k6 run --out json=stress/reports/export-load.json stress/k6/export-load.js
 
       - name: Upload export report
         if: always()
@@ -301,43 +251,95 @@ jobs:
           retention-days: 7
 
   # ────────────────────────────────────────────────────────────────────────────
-  # Job 4: Soak test (nightly only — manual trigger)
+  # Soak test — nightly schedule or manual soak-only trigger
+  # Self-contained: starts its own MySQL service + API
   # ────────────────────────────────────────────────────────────────────────────
   soak:
     name: Soak Test (60 min)
-    needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    if: github.event.inputs.test_suite == 'soak-only' || github.event.schedule
+    if: github.event.inputs.test_suite == 'soak-only' || github.event_name == 'schedule'
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ env.DB_PASSWORD }}
+          MYSQL_DATABASE: ${{ env.DB_NAME }}
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 3306:3306
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: v2-react/server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: v2-react/server
+        run: npm ci
+
+      - name: Write .env
+        run: |
+          cat > v2-react/server/.env << 'EOF'
+          NODE_ENV=test
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_NAME=${{ env.DB_NAME }}
+          DB_USER=${{ env.DB_USER }}
+          DB_PASS=${{ env.DB_PASSWORD }}
+          JWT_SECRET=ci-test-jwt-secret
+          PORT=3001
+          CORS_ORIGIN=http://localhost:5173
+          EOF
+
+      - name: Migrate and seed
+        working-directory: v2-react/server
+        run: npm run migrate && npm run seed
+
+      - name: Start API server
+        working-directory: v2-react/server
+        run: |
+          node src/index.js &
+          for i in {1..30}; do
+            curl -sf http://localhost:3001/api/auth/me > /dev/null 2>&1 && break || true; sleep 1
+          done
+        shell: bash
 
       - name: Install k6
         run: |
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
           echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
             | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update && sudo apt-get install -y k6
 
-      - name: Run 60-min soak test
+      - name: Soak test (60 min)
         env:
           BASE_URL: http://localhost:3001/api
-          ADMIN_EMAIL: admin@restaurant.com
+          ADMIN_USER: admin
           ADMIN_PASSWORD: password
           SOAK_VUS: '10'
           K6_DURATION: '60m'
-        run: k6 run --out json="stress/reports/soak.json" stress/k6/soak-mixed.js
-
-      - name: Run post-soak DB integrity checks
-        env:
-          MYSQL_PASSWORD: ${{ env.DB_PASSWORD }}
         run: |
-          mysql -u root -p"$MYSQL_PASSWORD" ${{ env.DB_NAME }} \
+          mkdir -p stress/reports
+          k6 run --out json=stress/reports/soak.json stress/k6/soak-mixed.js
+
+      - name: Post-soak DB integrity checks
+        run: |
+          mysql -u root -p"${{ env.DB_PASSWORD }}" ${{ env.DB_NAME }} \
             < stress/sql/integrity-checks.sql
-          mysql -u root -p"$MYSQL_PASSWORD" ${{ env.DB_NAME }} \
+          mysql -u root -p"${{ env.DB_PASSWORD }}" ${{ env.DB_NAME }} \
             < stress/sql/summary-rebuild-check.sql
 
       - name: Upload soak report
@@ -349,62 +351,21 @@ jobs:
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────────────────────
-  # Job 5: Summary gate (fails the run if any critical test failed)
+  # Quality gate — fails the run if test-core did not pass
   # ────────────────────────────────────────────────────────────────────────────
   gate:
     name: Quality Gate
-    needs: [smoke, concurrency, order-flow, summary]
+    needs: [test-core]
     runs-on: ubuntu-latest
+    if: always()
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download all reports
-        uses: actions/download-artifact@v4
-        with:
-          pattern: '*-report'
-          path: stress/reports/
-          merge-multiple: true
-
-      - name: Parse results
+      - name: Evaluate gate
         run: |
-          echo "=== Stress Test Quality Gate ==="
-          echo ""
-
-          PASS=0
-          FAIL=0
-
-          for report in stress/reports/*.json; do
-            [ -f "$report" ] || continue
-            NAME=$(basename "$report" .json)
-
-            if grep -q '"verdict":"PASS"' "$report"; then
-              echo "✅ $NAME: PASS"
-              PASS=$((PASS+1))
-            elif grep -q '"verdict":"FAIL"' "$report"; then
-              echo "❌ $NAME: FAIL"
-              FAIL=$((FAIL+1))
-            else
-              # Check http_req_failed threshold
-              ERR_RATE=$(grep -oE '"rate":[0-9.]+' "$report" | head -1 | grep -oE '[0-9.]+' || echo "0")
-              if (( $(echo "$ERR_RATE > 0.05" | bc -l) )); then
-                echo "⚠️  $NAME: ERROR_RATE=${ERR_RATE}"
-                FAIL=$((FAIL+1))
-              else
-                echo "✅ $NAME: OK (no verdict field)"
-                PASS=$((PASS+1))
-              fi
-            fi
-          done
-
-          echo ""
-          echo "Results: $PASS passed, $FAIL failed"
-          echo ""
-
-          if [ $FAIL -gt 0 ]; then
-            echo "❌ QUALITY GATE FAILED"
-            exit 1
+          echo "test-core result: ${{ needs.test-core.result }}"
+          if [ "${{ needs.test-core.result }}" = "success" ]; then
+            echo "QUALITY GATE PASSED"
           else
-            echo "✅ QUALITY GATE PASSED"
+            echo "QUALITY GATE FAILED"
+            exit 1
           fi

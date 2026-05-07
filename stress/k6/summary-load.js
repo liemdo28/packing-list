@@ -101,10 +101,10 @@ export default function () {
 
   // Fast-forward to completed inline (skip prepare/ship/receive for speed)
   // Use the transition endpoints
-  await http.post(`${BASE_URL}/orders/${orderId}/submit`, '{}', { headers: jsonHeaders(token) });
-  await http.post(`${BASE_URL}/orders/${orderId}/prepare`, '{}', { headers: jsonHeaders(token) });
-  await http.post(`${BASE_URL}/orders/${orderId}/ship`,    '{}', { headers: jsonHeaders(token) });
-  await http.post(`${BASE_URL}/orders/${orderId}/receive`, '{"lines":[]}', { headers: jsonHeaders(token) });
+  http.post(`${BASE_URL}/orders/${orderId}/submit`,  '{}',            { headers: jsonHeaders(token) });
+  http.post(`${BASE_URL}/orders/${orderId}/prepare`,  '{}',            { headers: jsonHeaders(token) });
+  http.post(`${BASE_URL}/orders/${orderId}/ship`,     '{}',            { headers: jsonHeaders(token) });
+  http.post(`${BASE_URL}/orders/${orderId}/receive`,  '{"lines":[]}',  { headers: jsonHeaders(token) });
   const completeRes = http.post(`${BASE_URL}/orders/${orderId}/complete`, '{}', { headers: jsonHeaders(token) });
 
   if (completeRes.status !== 200) return;

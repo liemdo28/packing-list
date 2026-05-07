@@ -4,7 +4,7 @@
  * Auth load test — validates login performance and JWT stability under concurrent load.
  *
  * Run:  k6 run stress/k6/auth-load.js
- * Env:  BASE_URL, ADMIN_EMAIL, ADMIN_PASSWORD, B1_EMAIL, B2_EMAIL, B3_EMAIL
+ * Env:  BASE_URL, ADMIN_USER, ADMIN_PASSWORD, B1_USER, B2_USER, B3_USER
  *
  * Load profile:
  *   Ramp 50 concurrent login attempts → sustain 5 minutes → ramp down
@@ -40,11 +40,11 @@ const authSuccessTotal = { type: 'Counter' };
 const authFailureTotal = { type: 'Counter' };
 
 export default function () {
-  const emails = [
-    __ENV.ADMIN_EMAIL || 'admin@restaurant.com',
-    __ENV.B1_EMAIL    || 'b1@restaurant.com',
-    __ENV.B2_EMAIL    || 'b2@restaurant.com',
-    __ENV.B3_EMAIL    || 'b3@restaurant.com',
+  const users = [
+    __ENV.ADMIN_USER || 'admin',
+    __ENV.B1_USER    || 'user_b1',
+    __ENV.B2_USER    || 'user_b2',
+    __ENV.B3_USER    || 'user_b3',
   ];
   const passwords = [
     __ENV.ADMIN_PASSWORD || 'password',
@@ -53,36 +53,38 @@ export default function () {
     __ENV.B3_PASSWORD    || 'password',
   ];
 
-  const idx = Math.floor(Math.random() * emails.length);
-  const email    = emails[idx];
+  const idx      = Math.floor(Math.random() * users.length);
+  const username = users[idx];
   const password = passwords[idx];
 
   const res = http.post(
     `${BASE_URL}/auth/login`,
-    JSON.stringify({ email, password }),
+    JSON.stringify({ username, password }),
     { headers: jsonHeaders() }
   );
 
   const ok = check(res, {
-    'login status 200':          (r) => r.status === 200,
-    'response body is JSON':      (r) => {
+    'login status 200':       (r) => r.status === 200,
+    'response body is JSON':  (r) => {
       try { JSON.parse(r.body); return true; } catch { return false; }
     },
-    'response contains token':    (r) => {
+    'response contains token': (r) => {
       try {
-        const body = JSON.parse(r.body);
-        return !!(body.token && body.token.length > 10);
+        const b = JSON.parse(r.body);
+        const token = b.data?.token || b.token;
+        return !!(token && token.length > 10);
       } catch { return false; }
     },
-    'response time < 1s':         (r) => r.timings.duration < 1000,
+    'response time < 1s':     (r) => r.timings.duration < 1000,
   });
 
   if (ok) {
     try {
-      const body = JSON.parse(res.body);
-      check(body, {
-        'token has expected structure': (b) =>
-          b.token && (b.user?.id || b.user?.id !== undefined),
+      const b = JSON.parse(res.body);
+      const token = b.data?.token || b.token;
+      const user  = b.data?.user  || b.user;
+      check({ token, user }, {
+        'token has expected structure': (d) => !!(d.token && d.user?.id),
       });
     } catch {}
   }
