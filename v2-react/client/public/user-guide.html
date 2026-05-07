@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Packing List — User Guide</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-size:10.5pt}
+body{font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;line-height:1.65}
+
+/* ── Page Layout ──────────────────────────────────────────── */
+@page{size:A4;margin:18mm 18mm 22mm 18mm}
+@page:first{margin:0}
+.page-break{page-break-before:always;break-before:page}
+.no-break{page-break-inside:avoid;break-inside:avoid}
+
+/* ── Cover ────────────────────────────────────────────────── */
+.cover{
+  width:100%;height:100vh;
+  background:linear-gradient(140deg,#0f172a 0%,#1e3a5f 55%,#0e7490 100%);
+  display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
+  padding:60px 72px;color:#fff;position:relative;overflow:hidden;
+}
+.cover::before{
+  content:'';position:absolute;top:-80px;right:-80px;
+  width:420px;height:420px;border-radius:50%;
+  background:radial-gradient(circle,rgba(56,189,248,.18) 0%,transparent 70%);
+}
+.cover::after{
+  content:'';position:absolute;bottom:-60px;left:40%;
+  width:320px;height:320px;border-radius:50%;
+  background:radial-gradient(circle,rgba(99,102,241,.15) 0%,transparent 70%);
+}
+.cover-label{font-size:8pt;font-weight:700;letter-spacing:.28em;text-transform:uppercase;color:#7dd3fc;margin-bottom:18px}
+.cover-title{font-size:38pt;font-weight:800;line-height:1.1;letter-spacing:-.02em;margin-bottom:10px}
+.cover-subtitle{font-size:14pt;color:#bae6fd;margin-bottom:48px;font-weight:400}
+.cover-version{font-size:9pt;color:#93c5fd;opacity:.85}
+.cover-divider{width:56px;height:4px;background:#38bdf8;border-radius:2px;margin-bottom:28px}
+.cover-meta{margin-top:auto;display:flex;gap:32px}
+.cover-meta-item{font-size:9pt;color:#94a3b8}
+.cover-meta-item strong{display:block;font-size:11pt;color:#e2e8f0;margin-bottom:2px}
+
+/* ── Table of Contents ────────────────────────────────────── */
+.toc-page{padding:52px 64px}
+.toc-title{font-size:22pt;font-weight:800;color:#0f172a;margin-bottom:32px;letter-spacing:-.02em}
+.toc-section{margin-bottom:4px;display:flex;align-items:baseline;gap:6px}
+.toc-section-num{font-size:9pt;font-weight:700;color:#0284c7;min-width:24px}
+.toc-section-label{font-size:10pt;color:#1e293b;flex:1}
+.toc-section-page{font-size:9pt;color:#94a3b8}
+.toc-dots{flex:1;border-bottom:1px dotted #cbd5e1;margin:0 6px;position:relative;top:-3px}
+.toc-group{margin-bottom:18px}
+.toc-group-title{font-size:8pt;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#94a3b8;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f1f5f9}
+.toc-sub{padding-left:28px;margin-bottom:3px;display:flex;align-items:baseline;gap:6px}
+.toc-sub-label{font-size:9.5pt;color:#475569}
+
+/* ── Content Layout ───────────────────────────────────────── */
+.content{padding:52px 64px}
+
+/* ── Chapter Header ───────────────────────────────────────── */
+.chapter{margin-bottom:36px}
+.chapter-num{font-size:8pt;font-weight:700;letter-spacing:.25em;text-transform:uppercase;color:#0284c7;margin-bottom:6px}
+.chapter-title{font-size:22pt;font-weight:800;color:#0f172a;line-height:1.1;margin-bottom:14px;letter-spacing:-.02em}
+.chapter-intro{font-size:10.5pt;color:#475569;line-height:1.7;max-width:620px}
+
+/* ── Section headings ─────────────────────────────────────── */
+h2{font-size:14pt;font-weight:700;color:#0f172a;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
+h3{font-size:11.5pt;font-weight:700;color:#1e3a5f;margin:20px 0 8px}
+h4{font-size:10.5pt;font-weight:700;color:#334155;margin:14px 0 6px}
+
+/* ── Text ─────────────────────────────────────────────────── */
+p{font-size:10.5pt;color:#334155;line-height:1.7;margin-bottom:10px}
+ul,ol{margin:8px 0 12px 22px}
+li{font-size:10.5pt;color:#334155;line-height:1.7;margin-bottom:3px}
+strong{color:#1e293b;font-weight:600}
+em{color:#475569;font-style:italic}
+
+/* ── Callout boxes ────────────────────────────────────────── */
+.callout{border-radius:10px;padding:14px 16px;margin:14px 0;display:flex;gap:14px;align-items:flex-start}
+.callout-icon{font-size:16pt;line-height:1;flex-shrink:0;margin-top:1px}
+.callout-body{}
+.callout-title{font-size:9.5pt;font-weight:700;margin-bottom:4px}
+.callout-text{font-size:9.5pt;line-height:1.6;margin:0}
+.callout.info{background:#eff6ff;border-left:3px solid #3b82f6}
+.callout.info .callout-title{color:#1d4ed8}
+.callout.warning{background:#fffbeb;border-left:3px solid #f59e0b}
+.callout.warning .callout-title{color:#92400e}
+.callout.success{background:#f0fdf4;border-left:3px solid #22c55e}
+.callout.success .callout-title{color:#15803d}
+.callout.danger{background:#fff1f2;border-left:3px solid #f43f5e}
+.callout.danger .callout-title{color:#be123c}
+
+/* ── Tables ───────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:9.5pt}
+thead tr{background:#f8fafc}
+th{text-align:left;padding:8px 12px;font-weight:700;color:#334155;border:1px solid #e2e8f0;font-size:8.5pt;text-transform:uppercase;letter-spacing:.06em}
+td{padding:8px 12px;border:1px solid #e2e8f0;color:#334155;vertical-align:top}
+tr:nth-child(even) td{background:#f8fafc}
+
+/* ── Workflow diagram ─────────────────────────────────────── */
+.workflow{display:flex;align-items:flex-start;gap:0;margin:24px 0}
+.wf-step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative}
+.wf-step:not(:last-child)::after{
+  content:'';position:absolute;top:18px;left:50%;width:100%;height:2px;
+  background:linear-gradient(90deg,#3b82f6,#e2e8f0);z-index:0;
+}
+.wf-dot{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10pt;font-weight:700;color:#fff;z-index:1;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.wf-label{font-size:7.5pt;font-weight:700;color:#475569;margin-top:7px;text-align:center;letter-spacing:.04em;line-height:1.3}
+.wf-actor{font-size:7pt;color:#94a3b8;margin-top:3px;text-align:center;line-height:1.2}
+.dot-draft{background:#64748b}
+.dot-submitted{background:#3b82f6}
+.dot-preparing{background:#f59e0b}
+.dot-shipping{background:#a855f7}
+.dot-received{background:#6366f1}
+.dot-completed{background:#22c55e}
+.dot-cancelled{background:#ef4444}
+
+/* ── Role cards ───────────────────────────────────────────── */
+.role-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+.role-card{border-radius:12px;padding:16px;border:1.5px solid #e2e8f0}
+.role-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:8pt;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.role-card h4{margin:0 0 6px;font-size:10pt;color:#1e293b}
+.role-card ul{margin:6px 0 0 16px}
+.role-card li{font-size:9pt;color:#475569;margin-bottom:2px}
+
+.badge-admin{background:#fef3c7;color:#92400e}
+.badge-b1{background:#eff6ff;color:#1d4ed8}
+.badge-b2{background:#f0fdf4;color:#15803d}
+.badge-b3{background:#fdf4ff;color:#7e22ce}
+.badge-accountant{background:#f8fafc;color:#334155;border:1px solid #e2e8f0}
+
+.role-card-admin{border-color:#fde68a}
+.role-card-b1{border-color:#bfdbfe}
+.role-card-b2{border-color:#bbf7d0}
+.role-card-b3{border-color:#e9d5ff}
+.role-card-accountant{border-color:#e2e8f0}
+
+/* ── Status badge ─────────────────────────────────────────── */
+.status{display:inline-flex;padding:2px 9px;border-radius:20px;font-size:8pt;font-weight:600}
+.s-draft{background:#f1f5f9;color:#475569}
+.s-submitted{background:#dbeafe;color:#1d4ed8}
+.s-preparing{background:#fef9c3;color:#92400e}
+.s-shipping{background:#f3e8ff;color:#7e22ce}
+.s-received{background:#e0e7ff;color:#3730a3}
+.s-completed{background:#dcfce7;color:#15803d}
+.s-cancelled{background:#fee2e2;color:#b91c1c}
+
+/* ── Step cards ───────────────────────────────────────────── */
+.step-list{margin:16px 0}
+.step-card{display:flex;gap:16px;padding:14px 16px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;margin-bottom:10px}
+.step-number{width:28px;height:28px;border-radius:50%;background:#0284c7;color:#fff;font-size:10pt;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-body{}
+.step-title{font-size:10.5pt;font-weight:700;color:#1e293b;margin-bottom:3px}
+.step-desc{font-size:9.5pt;color:#475569;line-height:1.6;margin:0}
+.step-actor{font-size:8.5pt;color:#0284c7;font-weight:600;margin-top:4px}
+
+/* ── Transfer rules ───────────────────────────────────────── */
+.transfer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0}
+.transfer-card{border-radius:10px;padding:14px 16px;border:1.5px solid #e2e8f0;background:#f8fafc}
+.transfer-route{font-size:13pt;font-weight:700;color:#1e3a5f;margin-bottom:6px}
+.transfer-arrow{color:#0284c7;margin:0 4px}
+.transfer-note{font-size:9pt;color:#64748b;line-height:1.5}
+
+/* ── Action buttons ───────────────────────────────────────── */
+.action-list{margin:14px 0}
+.action-item{display:flex;gap:14px;align-items:flex-start;padding:12px 14px;border-radius:8px;margin-bottom:8px;border:1px solid #e2e8f0}
+.action-btn{padding:4px 12px;border-radius:6px;font-size:8.5pt;font-weight:700;white-space:nowrap;text-align:center;min-width:110px;flex-shrink:0}
+.btn-primary{background:#0284c7;color:#fff}
+.btn-success{background:#16a34a;color:#fff}
+.btn-secondary{background:#f1f5f9;color:#334155}
+.btn-danger{background:#dc2626;color:#fff}
+.action-desc{}
+.action-desc p{font-size:9.5pt;color:#334155;margin:0 0 3px}
+.action-desc .roles{font-size:8.5pt;color:#0284c7;font-weight:600}
+
+/* ── Info grid ────────────────────────────────────────────── */
+.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0}
+.info-card{border-radius:10px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0}
+.info-card-icon{font-size:20pt;margin-bottom:8px}
+.info-card-title{font-size:10pt;font-weight:700;color:#1e293b;margin-bottom:6px}
+.info-card-text{font-size:9.5pt;color:#475569;line-height:1.6;margin:0}
+
+/* ── Screen mockups ───────────────────────────────────────── */
+.screen-box{border-radius:12px;border:2px solid #e2e8f0;overflow:hidden;margin:16px 0;box-shadow:0 2px 12px rgba(0,0,0,.07)}
+.screen-titlebar{background:#f1f5f9;padding:8px 14px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #e2e8f0}
+.screen-dot{width:9px;height:9px;border-radius:50%}
+.screen-body{padding:16px;background:#fff;font-size:9pt}
+
+/* ── Footer / header ──────────────────────────────────────── */
+.page-footer{position:fixed;bottom:0;left:0;right:0;padding:10px 64px;display:flex;justify-content:space-between;align-items:center;font-size:8pt;color:#94a3b8;border-top:1px solid #f1f5f9;background:#fff}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     COVER
+═══════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-label">Restaurant Operations</div>
+  <div class="cover-title">Packing List</div>
+  <div class="cover-subtitle">Complete User Guide — All Roles</div>
+  <div class="cover-divider"></div>
+  <p style="color:#bae6fd;font-size:11pt;max-width:480px;line-height:1.7">
+    A step-by-step reference for managing inter-store transfer orders,
+    from draft creation through final completion and price reconciliation.
+  </p>
+  <div class="cover-meta" style="margin-top:60px">
+    <div class="cover-meta-item"><strong>Version</strong>2.0</div>
+    <div class="cover-meta-item"><strong>Stores covered</strong>B1 · B2 · B3</div>
+    <div class="cover-meta-item"><strong>Language</strong>English</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TABLE OF CONTENTS
+═══════════════════════════════════════════════════════════ -->
+<div class="toc-page page-break">
+  <div class="toc-title">Table of Contents</div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Getting Started</div>
+    <div class="toc-section">
+      <span class="toc-section-num">1</span>
+      <span class="toc-section-label">System Overview</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">2</span>
+      <span class="toc-section-label">Stores &amp; Transfer Rules</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">3</span>
+      <span class="toc-section-label">User Roles &amp; Permissions</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">4</span>
+      <span class="toc-section-label">Logging In</span>
+      <span class="toc-dots"></span>
+    </div>
+  </div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Order Management</div>
+    <div class="toc-section">
+      <span class="toc-section-num">5</span>
+      <span class="toc-section-label">The Order Workflow</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">6</span>
+      <span class="toc-section-label">Creating a New Order</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">7</span>
+      <span class="toc-section-label">Order Detail &amp; Actions</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">8</span>
+      <span class="toc-section-label">Order List &amp; Filters</span>
+      <span class="toc-dots"></span>
+    </div>
+  </div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Role-Specific Workflows</div>
+    <div class="toc-section">
+      <span class="toc-section-num">9</span>
+      <span class="toc-section-label">B1 Staff Workflow</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">10</span>
+      <span class="toc-section-label">B3 Staff Workflow</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">11</span>
+      <span class="toc-section-label">B2 Staff Workflow</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">12</span>
+      <span class="toc-section-label">Accountant Workflow</span>
+      <span class="toc-dots"></span>
+    </div>
+  </div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Dashboard &amp; Notifications</div>
+    <div class="toc-section">
+      <span class="toc-section-num">13</span>
+      <span class="toc-section-label">Dashboard</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">14</span>
+      <span class="toc-section-label">Notifications</span>
+      <span class="toc-dots"></span>
+    </div>
+  </div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Admin &amp; Finance</div>
+    <div class="toc-section">
+      <span class="toc-section-num">15</span>
+      <span class="toc-section-label">Items &amp; Price Management</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">16</span>
+      <span class="toc-section-label">Invoices</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">17</span>
+      <span class="toc-section-label">Monthly Summary</span>
+      <span class="toc-dots"></span>
+    </div>
+    <div class="toc-section">
+      <span class="toc-section-num">18</span>
+      <span class="toc-section-label">Admin Tools</span>
+      <span class="toc-dots"></span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     1. SYSTEM OVERVIEW
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 1</div>
+    <div class="chapter-title">System Overview</div>
+    <p class="chapter-intro">
+      The Packing List system manages <strong>inter-store transfer orders</strong> between the restaurant's
+      three locations. It enforces a structured workflow so every transfer is tracked, priced,
+      and reconciled — from the moment a request is drafted until it is financially closed.
+    </p>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-card-icon">📦</div>
+      <div class="info-card-title">Transfer Orders</div>
+      <p class="info-card-text">
+        Request goods from another store. The system tracks who created the request,
+        who prepared the shipment, and who confirmed receipt.
+      </p>
+    </div>
+    <div class="info-card">
+      <div class="info-card-icon">🔄</div>
+      <div class="info-card-title">6-Step Workflow</div>
+      <p class="info-card-text">
+        Every order moves through Draft → Submitted → Preparing → Shipping →
+        Received → Completed. Each step is locked to the correct store and role.
+      </p>
+    </div>
+    <div class="info-card">
+      <div class="info-card-icon">💰</div>
+      <div class="info-card-title">Price Snapshot</div>
+      <p class="info-card-text">
+        When an order is completed, current prices are frozen into the order record.
+        This ensures monthly summaries always reflect the price at time of transfer.
+      </p>
+    </div>
+    <div class="info-card">
+      <div class="info-card-icon">🔔</div>
+      <div class="info-card-title">Real-time Notifications</div>
+      <p class="info-card-text">
+        Each status change triggers notifications to the relevant store staff
+        so no order is accidentally forgotten.
+      </p>
+    </div>
+  </div>
+
+  <div class="callout info no-break">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body">
+      <div class="callout-title">One action at a time</div>
+      <p class="callout-text">
+        The interface only shows the buttons your role is allowed to press for the current status.
+        If you see no action buttons, the order is waiting for a different store or role to continue.
+      </p>
+    </div>
+  </div>
+
+  <h2>Key Terms</h2>
+  <table>
+    <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Order / Transfer Order</strong></td><td>A request to move goods from one store (From) to another (To).</td></tr>
+      <tr><td><strong>From Store</strong></td><td>The source — the store that packs and sends the goods.</td></tr>
+      <tr><td><strong>To Store</strong></td><td>The destination — the store that receives and confirms the goods.</td></tr>
+      <tr><td><strong>Order Lines</strong></td><td>Individual item rows inside an order (item, quantity, notes).</td></tr>
+      <tr><td><strong>Recipient Name</strong></td><td>Optional: the person at the destination who will physically receive the delivery.</td></tr>
+      <tr><td><strong>Price Snapshot</strong></td><td>The frozen price captured from the Price Master at the moment an order is completed.</td></tr>
+      <tr><td><strong>Audit Log</strong></td><td>An immutable record of every action taken on the system, visible to admins.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     2. STORES & TRANSFER RULES
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 2</div>
+    <div class="chapter-title">Stores &amp; Transfer Rules</div>
+    <p class="chapter-intro">
+      The system operates across three store locations. Not all transfers are permitted —
+      the table below shows every allowed route.
+    </p>
+  </div>
+
+  <h2>Store Locations</h2>
+  <table>
+    <thead><tr><th>Code</th><th>Store Role</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>B1</strong></td>
+        <td>Main / Central Kitchen</td>
+        <td>Primary food preparation hub. Sends most items to B2 and B3. Also receives noodles from B3.</td>
+      </tr>
+      <tr>
+        <td><strong>B2</strong></td>
+        <td>Outlet Store</td>
+        <td>Receives goods from B1 (general items) and B3 (noodles). Does not initiate transfers to other stores.</td>
+      </tr>
+      <tr>
+        <td><strong>B3</strong></td>
+        <td>Noodle Supplier / Warehouse</td>
+        <td>Specialises in noodle production. Sends noodles to B1 and B2. Receives general supplies from B1.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Allowed Transfer Routes</h2>
+  <div class="transfer-grid">
+    <div class="transfer-card">
+      <div class="transfer-route"><span>B1</span><span class="transfer-arrow">→</span><span>B2</span></div>
+      <p class="transfer-note">B1 sends general items (Beverages, Food, Supplies) to the B2 outlet.</p>
+    </div>
+    <div class="transfer-card">
+      <div class="transfer-route"><span>B1</span><span class="transfer-arrow">→</span><span>B3</span></div>
+      <p class="transfer-note">B1 sends general supplies and ingredients to B3 warehouse.</p>
+    </div>
+    <div class="transfer-card">
+      <div class="transfer-route"><span>B3</span><span class="transfer-arrow">→</span><span>B1</span></div>
+      <p class="transfer-note">B3 sends Noodles category items back to B1 central kitchen.</p>
+    </div>
+    <div class="transfer-card">
+      <div class="transfer-route"><span>B3</span><span class="transfer-arrow">→</span><span>B2</span></div>
+      <p class="transfer-note">B3 sends Noodles category items directly to the B2 outlet.</p>
+    </div>
+  </div>
+
+  <div class="callout warning no-break">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body">
+      <div class="callout-title">Item category restriction</div>
+      <p class="callout-text">
+        When the From Store is <strong>B3</strong>, only items in the <em>Noodles</em> category can be added to the order.
+        When the From Store is <strong>B1</strong>, all non-Noodle categories are available.
+        The system enforces this automatically in the item selection dropdown.
+      </p>
+    </div>
+  </div>
+
+  <div class="callout danger no-break">
+    <div class="callout-icon">🚫</div>
+    <div class="callout-body">
+      <div class="callout-title">B2 cannot initiate transfers</div>
+      <p class="callout-text">
+        B2 is a receiving-only store. B2 staff cannot create new orders — they only confirm receipt
+        and complete incoming shipments from B1 or B3.
+      </p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     3. USER ROLES & PERMISSIONS
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 3</div>
+    <div class="chapter-title">User Roles &amp; Permissions</div>
+    <p class="chapter-intro">
+      Every user is assigned one role. The role determines which screens are visible,
+      which orders appear in their queue, and which action buttons are shown.
+    </p>
+  </div>
+
+  <div class="role-grid">
+    <div class="role-card role-card-admin" style="grid-column:span 3">
+      <span class="role-badge badge-admin">Admin</span>
+      <h4>Full access across all stores</h4>
+      <p style="font-size:9.5pt;color:#475569;margin:4px 0 8px">Can see and act on all orders for all stores. Has access to user management, audit logs, pricing, and reporting tools.</p>
+      <ul>
+        <li>Create orders between any allowed store pair</li>
+        <li>Perform all workflow actions (submit, prepare, ship, receive, complete, cancel)</li>
+        <li>Manage users, stores, items, and prices</li>
+        <li>View audit logs and monthly summary reports</li>
+        <li>Manage invoices and reconcile them</li>
+      </ul>
+    </div>
+
+    <div class="role-card role-card-b1">
+      <span class="role-badge badge-b1">B1 Staff</span>
+      <h4>B1 store operations</h4>
+      <ul>
+        <li>Create orders where B1 or B3 is the source</li>
+        <li>Submit, prepare, and ship orders from B1</li>
+        <li>Confirm receipt of orders arriving at B1</li>
+        <li>Complete B1-destination orders</li>
+        <li>Cancel draft/submitted/preparing orders from B1</li>
+      </ul>
+    </div>
+
+    <div class="role-card role-card-b2">
+      <span class="role-badge badge-b2">B2 Staff</span>
+      <h4>B2 receiving only</h4>
+      <ul>
+        <li>View all orders arriving at B2</li>
+        <li>Confirm receipt of shipped orders at B2</li>
+        <li>Complete B2-destination orders</li>
+        <li><em>Cannot create, submit, prepare, or ship</em></li>
+      </ul>
+    </div>
+
+    <div class="role-card role-card-b3">
+      <span class="role-badge badge-b3">B3 Staff</span>
+      <h4>B3 store operations</h4>
+      <ul>
+        <li>Create orders where B1 or B3 is the source</li>
+        <li>Submit, prepare, and ship orders from B3</li>
+        <li>Confirm receipt of orders arriving at B3</li>
+        <li>Complete B3-destination orders</li>
+        <li>Cancel draft/submitted/preparing orders from B3</li>
+      </ul>
+    </div>
+
+    <div class="role-card role-card-accountant" style="grid-column:span 3">
+      <span class="role-badge badge-accountant">Accountant</span>
+      <h4>Finance review — read + complete</h4>
+      <p style="font-size:9.5pt;color:#475569;margin:4px 0 8px">Focused on financial reconciliation. Can view all orders and complete received orders, but cannot create or move orders through operational steps.</p>
+      <ul>
+        <li>View all orders across all stores (read-only for operational steps)</li>
+        <li>Complete orders that have been received (finalises the price snapshot)</li>
+        <li>Create orders (admin-level store selection)</li>
+        <li>View and reconcile invoices</li>
+        <li>View monthly summary reports</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Permission Matrix</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Action</th>
+        <th>Required Status</th>
+        <th>Admin</th>
+        <th>B1</th>
+        <th>B2</th>
+        <th>B3</th>
+        <th>Accountant</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Create Order</td><td>—</td><td>✅</td><td>✅</td><td>❌</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Submit Order</td><td>Draft</td><td>✅</td><td>✅ (from B1 only)</td><td>❌</td><td>✅ (from B3 only)</td><td>❌</td></tr>
+      <tr><td>Start Preparing</td><td>Submitted</td><td>✅</td><td>✅ (from B1 only)</td><td>❌</td><td>✅ (from B3 only)</td><td>❌</td></tr>
+      <tr><td>Complete Preparing</td><td>Preparing</td><td>✅</td><td>✅ (from B1 only)</td><td>❌</td><td>✅ (from B3 only)</td><td>❌</td></tr>
+      <tr><td>Confirm Receipt</td><td>Shipping</td><td>✅</td><td>✅ (to B1 only)</td><td>✅ (to B2 only)</td><td>✅ (to B3 only)</td><td>❌</td></tr>
+      <tr><td>Complete Order</td><td>Received</td><td>✅</td><td>✅ (to B1 only)</td><td>✅ (to B2 only)</td><td>✅ (to B3 only)</td><td>✅ (any store)</td></tr>
+      <tr><td>Cancel Order</td><td>Draft/Submitted/Preparing</td><td>✅</td><td>✅ (from B1 only)</td><td>❌</td><td>✅ (from B3 only)</td><td>❌</td></tr>
+      <tr><td>Edit Draft</td><td>Draft</td><td>✅</td><td>✅ (from B1 only)</td><td>❌</td><td>✅ (from B3 only)</td><td>❌</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     4. LOGGING IN
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 4</div>
+    <div class="chapter-title">Logging In</div>
+  </div>
+
+  <div class="step-list">
+    <div class="step-card no-break">
+      <div class="step-number">1</div>
+      <div class="step-body">
+        <div class="step-title">Open the app URL</div>
+        <p class="step-desc">Navigate to the Packing List URL in your web browser. The login screen appears automatically if you are not signed in.</p>
+      </div>
+    </div>
+    <div class="step-card no-break">
+      <div class="step-number">2</div>
+      <div class="step-body">
+        <div class="step-title">Enter your username and password</div>
+        <p class="step-desc">Use the credentials provided by your Admin. Usernames are typically your store code followed by a role identifier (e.g. <em>user_b1</em>, <em>user_b2</em>).</p>
+      </div>
+    </div>
+    <div class="step-card no-break">
+      <div class="step-number">3</div>
+      <div class="step-body">
+        <div class="step-title">You are redirected to the Dashboard</div>
+        <p class="step-desc">After a successful login the dashboard loads showing your store's pending work and attention cards tailored to your role.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warning no-break">
+    <div class="callout-icon">🔒</div>
+    <div class="callout-body">
+      <div class="callout-title">Account lockout</div>
+      <p class="callout-text">
+        After <strong>5 consecutive failed login attempts</strong>, your account is temporarily locked for 30 minutes.
+        If you are locked out, contact your Admin to reset the lock, or wait 30 minutes and try again.
+      </p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     5. THE ORDER WORKFLOW
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 5</div>
+    <div class="chapter-title">The Order Workflow</div>
+    <p class="chapter-intro">
+      Every transfer order follows a strict, linear 6-step lifecycle.
+      Each step is owned by a specific store and role — you will only see
+      the action button when the order is in <em>your</em> step.
+    </p>
+  </div>
+
+  <div class="workflow no-break">
+    <div class="wf-step">
+      <div class="wf-dot dot-draft">1</div>
+      <div class="wf-label">Draft</div>
+      <div class="wf-actor">Sender</div>
+    </div>
+    <div class="wf-step">
+      <div class="wf-dot dot-submitted">2</div>
+      <div class="wf-label">Submitted</div>
+      <div class="wf-actor">Sender</div>
+    </div>
+    <div class="wf-step">
+      <div class="wf-dot dot-preparing">3</div>
+      <div class="wf-label">Preparing</div>
+      <div class="wf-actor">Sender</div>
+    </div>
+    <div class="wf-step">
+      <div class="wf-dot dot-shipping">4</div>
+      <div class="wf-label">Shipping</div>
+      <div class="wf-actor">In transit</div>
+    </div>
+    <div class="wf-step">
+      <div class="wf-dot dot-received">5</div>
+      <div class="wf-label">Received</div>
+      <div class="wf-actor">Receiver</div>
+    </div>
+    <div class="wf-step">
+      <div class="wf-dot dot-completed">6</div>
+      <div class="wf-label">Completed</div>
+      <div class="wf-actor">Receiver / Admin</div>
+    </div>
+  </div>
+
+  <div class="step-list">
+    <div class="step-card no-break">
+      <div class="step-number" style="background:#64748b">1</div>
+      <div class="step-body">
+        <div class="step-title"><span class="status s-draft">Draft</span> — Order created, not yet sent</div>
+        <p class="step-desc">
+          The order exists in the system but has not been officially submitted to the sender's workflow.
+          It can still be fully edited — items, quantities, notes, and recipient name can all be changed.
+          The sender store staff created this order.
+        </p>
+        <div class="step-actor">Who acts next: Sender (B1 or B3 staff, or Admin) → click <strong>Submit Order</strong></div>
+      </div>
+    </div>
+
+    <div class="step-card no-break">
+      <div class="step-number" style="background:#3b82f6">2</div>
+      <div class="step-body">
+        <div class="step-title"><span class="status s-submitted">Submitted</span> — Locked and queued for preparation</div>
+        <p class="step-desc">
+          The order is confirmed and locked for editing. The sender store now knows
+          they need to prepare this shipment. It appears in the sender's "Needs My Action" queue.
+        </p>
+        <div class="step-actor">Who acts next: Sender (B1 or B3 staff, or Admin) → click <strong>Start Preparing</strong></div>
+      </div>
+    </div>
+
+    <div class="step-card no-break">
+      <div class="step-number" style="background:#f59e0b">3</div>
+      <div class="step-body">
+        <div class="step-title"><span class="status s-preparing">Preparing</span> — Sender is packing the items</div>
+        <p class="step-desc">
+          The sender store is physically packing and checking the goods. Staff should
+          verify quantities against the order lines before proceeding. When packing is complete,
+          clicking <strong>Complete Preparing</strong> automatically advances the order to Shipping status —
+          signalling to the receiver that the goods are on the way.
+        </p>
+        <div class="step-actor">Who acts next: Sender (B1 or B3 staff, or Admin) → click <strong>Complete Preparing</strong></div>
+      </div>
+    </div>
+
+    <div class="step-card no-break">
+      <div class="step-number" style="background:#a855f7">4</div>
+      <div class="step-body">
+        <div class="step-title"><span class="status s-shipping">Shipping</span> — Goods in transit to destination</div>
+        <p class="step-desc">
+          The sender has finished packing. The receiver's dashboard now shows an
+          <em>"📦 Incoming Shipment"</em> banner with the sender's name and the recipient name (if set).
+          Staff at the destination store should prepare to receive the goods.
+          No editing is possible at this stage.
+        </p>
+        <div class="step-actor">Who acts next: Receiver (B1 / B2 / B3 staff at destination, or Admin) → click <strong>Confirm Receipt</strong></div>
+      </div>
+    </div>
+
+    <div class="step-card no-break">
+      <div class="step-number" style="background:#6366f1">5</div>
+      <div class="step-body">
+        <div class="step-title"><span class="status s-received">Received</span> — Destination store confirmed receipt</div>
+        <p class="step-desc">
+          The receiving store has physically verified the goods. The order is now pending
+          final financial completion. Prices are not yet frozen.
+        </p>
+        <div class="step-actor">Who acts next: Receiver or Accountant → click <strong>Complete Order</strong></div>
+      </div>
+    </div>
+
+    <div class="step-card no-break">
+      <div class="step-number" style="background:#22c55e">6</div>
+      <div class="step-body">
+        <div class="step-title"><span class="status s-completed">Completed</span> — Financially closed</div>
+        <p class="step-desc">
+          When an order is completed, the system <strong>automatically snapshots the current price</strong>
+          from the Price Master for every item in the order. The unit price, line total, and order total
+          are frozen permanently. Completed orders are included in monthly summary calculations.
+          <strong>This action cannot be undone.</strong>
+        </p>
+        <div class="step-actor">Terminal state — no further actions available.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout danger no-break">
+    <div class="callout-icon">❌</div>
+    <div class="callout-body">
+      <div class="callout-title">Cancellation</div>
+      <p class="callout-text">
+        Orders can be cancelled at any point during Draft, Submitted, or Preparing stages.
+        Once an order reaches Shipping it <strong>cannot be cancelled</strong> — only the full receive → complete path remains.
+        When cancelling, you may optionally enter a reason which is recorded in the order.
+      </p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     6. CREATING A NEW ORDER
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 6</div>
+    <div class="chapter-title">Creating a New Order</div>
+    <p class="chapter-intro">
+      B1 staff, B3 staff, and Admins can create new transfer orders.
+      Navigate to <strong>Orders → New Transfer Order</strong> in the sidebar.
+    </p>
+  </div>
+
+  <h2>Step-by-Step</h2>
+  <div class="step-list">
+    <div class="step-card no-break">
+      <div class="step-number">1</div>
+      <div class="step-body">
+        <div class="step-title">Select From Store (Source)</div>
+        <p class="step-desc">
+          Choose the store that will pack and send the goods.
+          Non-admin users see only their allowed sources:
+          B1 staff can only select B3 as source (since B1 receives noodles from B3);
+          B3 staff can only select B1.
+          Admins and accountants can choose any valid source.
+        </p>
+      </div>
+    </div>
+    <div class="step-card no-break">
+      <div class="step-number">2</div>
+      <div class="step-body">
+        <div class="step-title">Select To Store (Destination)</div>
+        <p class="step-desc">
+          For B1, B2, and B3 staff, the destination is automatically locked to their own store.
+          Admins can freely choose the destination from the allowed routes for the selected source.
+        </p>
+      </div>
+    </div>
+    <div class="step-card no-break">
+      <div class="step-number">3</div>
+      <div class="step-body">
+        <div class="step-title">Enter Recipient Name (optional)</div>
+        <p class="step-desc">
+          Optionally enter the name of the person at the destination who will receive
+          the physical delivery. This name is displayed as an "Incoming Shipment" banner
+          at the destination store when the order is in Shipping status.
+          Maximum 100 characters.
+        </p>
+      </div>
+    </div>
+    <div class="step-card no-break">
+      <div class="step-number">4</div>
+      <div class="step-body">
+        <div class="step-title">Add Notes (optional)</div>
+        <p class="step-desc">
+          Free-text notes visible to all users who view the order. Use this for
+          special handling instructions, urgency indicators, or context.
+        </p>
+      </div>
+    </div>
+    <div class="step-card no-break">
+      <div class="step-number">5</div>
+      <div class="step-body">
+        <div class="step-title">Add Items</div>
+        <p class="step-desc">
+          Click <strong>Add Item</strong> to add rows. For each row:<br/>
+          • <strong>Item</strong> — Select from the dropdown. Items are filtered by category based on the From Store.<br/>
+          • <strong>Quantity</strong> — Enter the quantity (supports decimal values, e.g. 1.5).<br/>
+          • <strong>Notes</strong> — Optional per-line note (e.g. "urgent", "half portion").<br/>
+          At least one item with a quantity greater than zero is required.
+          Click the trash icon to remove a line (minimum 1 line required).
+        </p>
+      </div>
+    </div>
+    <div class="step-card no-break">
+      <div class="step-number">6</div>
+      <div class="step-body">
+        <div class="step-title">Click Create Order</div>
+        <p class="step-desc">
+          The order is saved as a <span class="status s-draft">Draft</span> and you are
+          redirected to the order detail page. From there you can review it and submit.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout info no-break">
+    <div class="callout-icon">✏️</div>
+    <div class="callout-body">
+      <div class="callout-title">Editing a draft</div>
+      <p class="callout-text">
+        While the order is in Draft status, the <strong>Edit Draft</strong> button is available on the order detail page.
+        Editing replaces all order lines — re-add every item you want to keep.
+        Once submitted, the order is locked and cannot be edited.
+      </p>
+    </div>
+  </div>
+
+  <h2>Order Number Format</h2>
+  <p>Every order receives an automatically generated order number in the format:</p>
+  <div class="screen-box no-break">
+    <div class="screen-body" style="font-family:monospace;font-size:12pt;text-align:center;padding:20px;color:#0284c7;font-weight:700">
+      PL-YYYYMMDD-NNN
+    </div>
+  </div>
+  <p>For example, <strong>PL-20260507-003</strong> means the 3rd order created on 7 May 2026. The sequence resets daily.</p>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     7. ORDER DETAIL & ACTIONS
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 7</div>
+    <div class="chapter-title">Order Detail &amp; Actions</div>
+    <p class="chapter-intro">
+      The Order Detail page is the primary workspace for moving an order through its lifecycle.
+      It shows the current status, the timeline, all items, and the action panel.
+    </p>
+  </div>
+
+  <h2>Page Layout</h2>
+  <table>
+    <thead><tr><th>Section</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Header</strong></td><td>Order number, From → To stores, current status badge, progress timeline, cancel reason (if cancelled).</td></tr>
+      <tr><td><strong>Workflow Panel</strong></td><td>Shows the next recommended action and a helper description. If you cannot act on this order, it tells you why (e.g. "Only the destination store can confirm receipt").</td></tr>
+      <tr><td><strong>Incoming Shipment Banner</strong></td><td>Appears when status is <span class="status s-shipping">Shipping</span>. Shows the sender's name and the recipient name at the destination.</td></tr>
+      <tr><td><strong>Order Lines Table</strong></td><td>All items with quantities. Unit Price and Total columns are filled in once the order is completed (price snapshot).</td></tr>
+      <tr><td><strong>Information Panel</strong></td><td>Created by, timestamps for each step, recipient name, order notes.</td></tr>
+      <tr><td><strong>Actions Panel</strong></td><td>Contains all buttons you are allowed to use at the current status. Other roles' buttons are hidden.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Action Buttons</h2>
+  <div class="action-list">
+    <div class="action-item no-break">
+      <div class="action-btn btn-primary">Submit Order</div>
+      <div class="action-desc">
+        <p>Locks the draft and queues it for preparation. The order can no longer be edited.</p>
+        <div class="roles">Available when: Draft · Roles: Admin, B1 (from B1), B3 (from B3)</div>
+      </div>
+    </div>
+    <div class="action-item no-break">
+      <div class="action-btn btn-primary">Start Preparing</div>
+      <div class="action-desc">
+        <p>Signals the sender has started packing. The order moves to Preparing status.</p>
+        <div class="roles">Available when: Submitted · Roles: Admin, B1 (from B1), B3 (from B3)</div>
+      </div>
+    </div>
+    <div class="action-item no-break">
+      <div class="action-btn btn-primary">Complete Preparing</div>
+      <div class="action-desc">
+        <p>Marks packing as done. The order automatically moves to <span class="status s-shipping">Shipping</span>, notifying the destination store that goods are on the way.</p>
+        <div class="roles">Available when: Preparing · Roles: Admin, B1 (from B1), B3 (from B3)</div>
+      </div>
+    </div>
+    <div class="action-item no-break">
+      <div class="action-btn btn-success">Confirm Receipt</div>
+      <div class="action-desc">
+        <p>The destination store confirms the goods have arrived. The order moves to Received status.</p>
+        <div class="roles">Available when: Shipping · Roles: Admin, B1/B2/B3 (at destination store only)</div>
+      </div>
+    </div>
+    <div class="action-item no-break">
+      <div class="action-btn btn-success">Complete Order</div>
+      <div class="action-desc">
+        <p><strong>High-impact action.</strong> Freezes the current prices into the order (price snapshot), calculates all line totals and the grand total, and closes the order. Included in monthly summaries. Cannot be undone.</p>
+        <div class="roles">Available when: Received · Roles: Admin, B1/B2/B3 (at destination store), Accountant</div>
+      </div>
+    </div>
+    <div class="action-item no-break">
+      <div class="action-btn btn-secondary">Edit Draft</div>
+      <div class="action-desc">
+        <p>Opens the edit form to update order lines. Only available while the order is still a draft.</p>
+        <div class="roles">Available when: Draft · Roles: Admin, B1 (from B1), B3 (from B3)</div>
+      </div>
+    </div>
+    <div class="action-item no-break">
+      <div class="action-btn btn-danger">Cancel Order</div>
+      <div class="action-desc">
+        <p>Permanently stops this transfer. A confirmation dialog asks for an optional cancel reason, which is recorded on the order. Cannot be undone. Cancelled orders are not included in summaries.</p>
+        <div class="roles">Available when: Draft / Submitted / Preparing · Roles: Admin, B1 (from B1), B3 (from B3)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     8. ORDER LIST & FILTERS
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 8</div>
+    <div class="chapter-title">Order List &amp; Filters</div>
+    <p class="chapter-intro">
+      The Orders page shows all orders relevant to your role. Use the tabs at the top to quickly
+      jump to the view that matches your current task.
+    </p>
+  </div>
+
+  <h2>Tab Groups</h2>
+  <table>
+    <thead><tr><th>Tab</th><th>What it shows</th><th>When to use it</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Needs My Action</strong></td>
+        <td>Orders where you personally can click the next action button right now.</td>
+        <td>Your primary work queue — check this first every session.</td>
+      </tr>
+      <tr>
+        <td><strong>In Progress</strong></td>
+        <td>Active orders at Submitted, Preparing, or Received status.</td>
+        <td>Monitor overall progress without filtering to just your actions.</td>
+      </tr>
+      <tr>
+        <td><strong>Waiting on Other Store</strong></td>
+        <td>Orders currently in Shipping status — goods are in transit.</td>
+        <td>Track what the other store has sent and hasn't been received yet.</td>
+      </tr>
+      <tr>
+        <td><strong>Completed</strong></td>
+        <td>Fully closed orders with frozen prices.</td>
+        <td>Reference for reconciliation and history.</td>
+      </tr>
+      <tr>
+        <td><strong>Problems</strong></td>
+        <td>Cancelled orders and orders inactive for more than 2 days.</td>
+        <td>Address stuck or blocked transfers before they cause delays.</td>
+      </tr>
+      <tr>
+        <td><strong>Drafts</strong></td>
+        <td>Orders still in Draft status.</td>
+        <td>Review and submit pending drafts.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Search &amp; Filters</h2>
+  <p>The order list supports:</p>
+  <ul>
+    <li><strong>Text search</strong> — search by order number, store code, or item name</li>
+    <li><strong>Status filter</strong> — filter to one or more specific statuses</li>
+    <li><strong>Date range</strong> — filter by creation date</li>
+    <li><strong>Store filter</strong> — (admin only) filter by from/to store</li>
+  </ul>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     9-12. ROLE WORKFLOWS
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapters 9–12</div>
+    <div class="chapter-title">Role-Specific Workflows</div>
+  </div>
+
+  <h2>Chapter 9 — B1 Staff Daily Workflow</h2>
+  <div class="callout info no-break">
+    <div class="callout-icon">🏪</div>
+    <div class="callout-body">
+      <div class="callout-title">B1 responsibilities</div>
+      <p class="callout-text">B1 is the main hub. It sends goods to B2 and B3, and receives noodles from B3. B1 staff handle both the sender side (submit → prepare → ship) and the receiver side (receive → complete) for noodle orders from B3.</p>
+    </div>
+  </div>
+  <h3>Sending goods (B1 → B2 or B1 → B3)</h3>
+  <ol>
+    <li>Go to <strong>Orders → New Transfer Order</strong>.</li>
+    <li>Set <em>From Store</em> = B1, <em>To Store</em> = B2 or B3.</li>
+    <li>Add items (non-noodle categories), set quantities. Optionally enter recipient name and notes.</li>
+    <li>Click <strong>Create Order</strong> → you are redirected to the draft.</li>
+    <li>Review the draft, then click <strong>Submit Order</strong>.</li>
+    <li>When ready to pack, click <strong>Start Preparing</strong>.</li>
+    <li>Pack the goods, then click <strong>Complete Preparing</strong>. The order changes to Shipping — the destination store is notified.</li>
+    <li>Wait for the destination store to confirm receipt and complete the order.</li>
+  </ol>
+  <h3>Receiving noodles (B3 → B1)</h3>
+  <ol>
+    <li>When the "📦 Incoming Shipment" banner appears for a B3→B1 order, prepare to receive.</li>
+    <li>Open the order. Verify items match what was physically received.</li>
+    <li>Click <strong>Confirm Receipt</strong>.</li>
+    <li>Click <strong>Complete Order</strong> to freeze prices and close the order.</li>
+  </ol>
+
+  <h2 style="margin-top:28px">Chapter 10 — B3 Staff Daily Workflow</h2>
+  <div class="callout info no-break">
+    <div class="callout-icon">🏭</div>
+    <div class="callout-body">
+      <div class="callout-title">B3 responsibilities</div>
+      <p class="callout-text">B3 is the noodle warehouse. It sends noodles to B1 and B2, and receives general supplies from B1. B3 workflow mirrors B1 but for noodle-category items.</p>
+    </div>
+  </div>
+  <h3>Sending noodles (B3 → B1 or B3 → B2)</h3>
+  <ol>
+    <li>Go to <strong>Orders → New Transfer Order</strong>.</li>
+    <li>Set <em>From Store</em> = B3. Only Noodles category items are available.</li>
+    <li>Add noodle items and quantities. Enter recipient name if needed.</li>
+    <li>Click <strong>Create Order</strong>, then <strong>Submit Order</strong>.</li>
+    <li>When ready: <strong>Start Preparing</strong> → pack noodles → <strong>Complete Preparing</strong>.</li>
+    <li>The destination store receives an incoming shipment notification.</li>
+  </ol>
+  <h3>Receiving general supplies (B1 → B3)</h3>
+  <ol>
+    <li>Open incoming B1→B3 orders in the <em>Waiting on Other Store</em> tab when they reach Shipping.</li>
+    <li>Click <strong>Confirm Receipt</strong>, then <strong>Complete Order</strong>.</li>
+  </ol>
+
+  <h2 style="margin-top:28px">Chapter 11 — B2 Staff Daily Workflow</h2>
+  <div class="callout info no-break">
+    <div class="callout-icon">🛍️</div>
+    <div class="callout-body">
+      <div class="callout-title">B2 responsibilities</div>
+      <p class="callout-text">B2 is a receiving-only outlet. B2 staff only confirm receipt and complete orders. They cannot create or prepare orders.</p>
+    </div>
+  </div>
+  <ol>
+    <li>Check the Dashboard or <em>Incoming Shipments</em> attention card for orders arriving at B2.</li>
+    <li>Open an order showing the "📦 Incoming Shipment" banner.</li>
+    <li>Verify all items are physically present. Note any discrepancies in the notes and contact your Admin.</li>
+    <li>Click <strong>Confirm Receipt</strong>.</li>
+    <li>Click <strong>Complete Order</strong> to finalise and freeze prices.</li>
+  </ol>
+
+  <h2 style="margin-top:28px">Chapter 12 — Accountant Workflow</h2>
+  <div class="callout info no-break">
+    <div class="callout-icon">📊</div>
+    <div class="callout-body">
+      <div class="callout-title">Accountant focus</div>
+      <p class="callout-text">Accountants primarily use the system for financial review. Their key action is completing received orders to lock in prices, and reviewing the monthly summary.</p>
+    </div>
+  </div>
+  <ol>
+    <li>Check the <em>Need Confirmation</em> attention card on the Dashboard for orders at Received status.</li>
+    <li>Open each received order. Review line items and verify they align with any physical delivery notes.</li>
+    <li>Click <strong>Complete Order</strong> to freeze the price snapshot and include it in the monthly summary.</li>
+    <li>Navigate to <strong>Summary</strong> to review monthly transfer totals by store pair.</li>
+    <li>Navigate to <strong>Invoices</strong> to review and reconcile invoices.</li>
+  </ol>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     13. DASHBOARD
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 13</div>
+    <div class="chapter-title">Dashboard</div>
+    <p class="chapter-intro">
+      The Dashboard is your starting point every session. It shows role-tailored
+      attention cards, a priority work queue, and an operational summary.
+    </p>
+  </div>
+
+  <h2>Attention Cards</h2>
+  <table>
+    <thead><tr><th>Card</th><th>What it counts</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Needs My Action</strong></td>
+        <td>Orders where you can click a primary action button right now.</td>
+        <td>Click to open the filtered order list.</td>
+      </tr>
+      <tr>
+        <td><strong>Incoming Shipments</strong></td>
+        <td>Orders in Shipping status headed to your store.</td>
+        <td>Prepare to receive. Click to see the list.</td>
+      </tr>
+      <tr>
+        <td><strong>Need Confirmation</strong></td>
+        <td>Orders at Received status waiting for the Complete action.</td>
+        <td>Complete these to lock prices and update the summary.</td>
+      </tr>
+      <tr>
+        <td><strong>Drafts Not Submitted</strong></td>
+        <td>Draft orders you created but haven't submitted yet.</td>
+        <td>Review and submit when ready.</td>
+      </tr>
+      <tr>
+        <td><strong>Delayed or Stuck</strong></td>
+        <td>Active orders not updated in more than 2 days.</td>
+        <td>Investigate and unblock to avoid operational delays.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Today at a Glance</h2>
+  <table>
+    <thead><tr><th>Metric</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Waiting</strong></td><td>Number of orders in your "Needs My Action" queue.</td></tr>
+      <tr><td><strong>Incoming</strong></td><td>Number of shipped orders heading to your store.</td></tr>
+      <tr><td><strong>Completed</strong></td><td>Orders fully closed this month.</td></tr>
+      <tr><td><strong>Monthly total</strong></td><td>Combined value of all completed orders this month (price-snapshot based).</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Priority Work Queue</h2>
+  <p>The "Orders ready for you" section shows up to 5 orders where you can take the next valid action.
+  Each row shows:</p>
+  <ul>
+    <li>Order number and route (From → To)</li>
+    <li>Current status badge</li>
+    <li>Risk label (<em>Delayed</em> or <em>Blocked</em> if applicable)</li>
+    <li>Next action name and helper description</li>
+  </ul>
+  <p>Click any row to open the order detail page directly.</p>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     14. NOTIFICATIONS
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 14</div>
+    <div class="chapter-title">Notifications</div>
+    <p class="chapter-intro">
+      The system sends real-time notifications when order statuses change.
+      A red badge on the bell icon in the top navigation bar shows your unread count.
+    </p>
+  </div>
+
+  <h2>When Notifications Are Sent</h2>
+  <table>
+    <thead><tr><th>Event</th><th>Who receives the notification</th></tr></thead>
+    <tbody>
+      <tr><td>Order created</td><td>All staff at the destination (To) store + all admins</td></tr>
+      <tr><td>Order submitted</td><td>All staff at the destination store</td></tr>
+      <tr><td>Order preparing</td><td>All staff at the destination store</td></tr>
+      <tr><td>Order shipped (Complete Preparing clicked)</td><td>All staff at the destination store — "📦 Incoming Shipment"</td></tr>
+      <tr><td>Order received</td><td>All staff at the source (From) store — confirmation of delivery</td></tr>
+      <tr><td>Order completed</td><td>All staff at the destination store + all admins</td></tr>
+      <tr><td>Order cancelled</td><td>All admins</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Notification Types</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Colour</th><th>Examples</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Order</strong></td><td>Blue</td><td>Status updates (submitted, preparing, completed)</td></tr>
+      <tr><td><strong>Shipment</strong></td><td>Purple</td><td>Incoming shipment, receipt confirmed</td></tr>
+      <tr><td><strong>Alert</strong></td><td>Red/Orange</td><td>Cancellation, delayed order</td></tr>
+      <tr><td><strong>Discrepancy</strong></td><td>Orange</td><td>Quantity mismatch during receiving (future feature)</td></tr>
+      <tr><td><strong>System</strong></td><td>Grey</td><td>System-level messages</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Managing Notifications</h2>
+  <ul>
+    <li>Click the <strong>bell icon</strong> in the header to open your notification tray.</li>
+    <li>Click any notification to open the associated order directly.</li>
+    <li>Click <strong>Mark all as read</strong> to clear the unread badge.</li>
+    <li>Navigate to <strong>Notifications</strong> in the sidebar for the full notification history with filters by type, status, and severity.</li>
+  </ul>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     15. ITEMS & PRICES
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 15</div>
+    <div class="chapter-title">Items &amp; Price Management</div>
+    <p class="chapter-intro">
+      Items are the goods that appear in order lines. Prices are managed separately
+      in the Price Master and are versioned by date. Both are admin-managed.
+    </p>
+  </div>
+
+  <h2>Items</h2>
+  <p>Navigate to <strong>Items</strong> in the sidebar (admin only).</p>
+  <table>
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Code</strong></td><td>Unique short identifier (e.g. NM-001)</td></tr>
+      <tr><td><strong>Name</strong></td><td>Full display name visible in dropdowns</td></tr>
+      <tr><td><strong>Category</strong></td><td>Beverages, Food, Supplies, or Noodles — controls which store can include the item</td></tr>
+      <tr><td><strong>Unit</strong></td><td>Unit of measurement (e.g. kg, pack, bottle)</td></tr>
+      <tr><td><strong>Active</strong></td><td>Inactive items do not appear in order creation dropdowns</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Price Master</h2>
+  <p>Navigate to <strong>Prices</strong> in the sidebar (admin only). Each price record has:</p>
+  <table>
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Item</strong></td><td>Which item this price applies to</td></tr>
+      <tr><td><strong>Price</strong></td><td>Unit price in VND</td></tr>
+      <tr><td><strong>Effective Date</strong></td><td>The date from which this price is active</td></tr>
+      <tr><td><strong>End Date</strong></td><td>Optional — the last date this price is valid. Null means open-ended.</td></tr>
+      <tr><td><strong>Active</strong></td><td>Only active price records are used for snapshots</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info no-break">
+    <div class="callout-icon">📌</div>
+    <div class="callout-body">
+      <div class="callout-title">How price snapshots work</div>
+      <p class="callout-text">
+        When you click <strong>Complete Order</strong>, the system finds the most recent active price record
+        for each item where <em>effective_date ≤ today</em> and either end_date is null or ≥ today.
+        This price is written into the order line and the order total is calculated.
+        The Price Master can then change without affecting historical order records.
+      </p>
+    </div>
+  </div>
+
+  <h2>Pricing Dashboard</h2>
+  <p>Admins can access <strong>Admin → Pricing Dashboard</strong> to:</p>
+  <ul>
+    <li>View a summary of current active prices for all items</li>
+    <li>Identify items without an active price (these will snapshot as ₫0)</li>
+    <li>Review price history per item</li>
+  </ul>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     16. INVOICES
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 16</div>
+    <div class="chapter-title">Invoices</div>
+    <p class="chapter-intro">
+      The Invoices module tracks external purchase invoices paid on behalf of stores.
+      Accessible to Admins and Accountants.
+    </p>
+  </div>
+
+  <h2>Invoice Statuses</h2>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><span class="status s-submitted">Pending</span></td><td>Invoice recorded but not yet reviewed against payments.</td></tr>
+      <tr><td><span class="status s-completed">Reconciled</span></td><td>Invoice matched and confirmed against actual payments.</td></tr>
+      <tr><td><span class="status s-cancelled">Disputed</span></td><td>A discrepancy was found — requires follow-up.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Creating an Invoice</h2>
+  <ol>
+    <li>Navigate to <strong>Invoices → New Invoice</strong>.</li>
+    <li>Select the store that paid the invoice (<em>Paid By Store</em>) and the store it was paid on behalf of (<em>On Behalf Of Store</em>).</li>
+    <li>Enter invoice date, reference number, and add line items with amounts.</li>
+    <li>Save the invoice as Pending.</li>
+  </ol>
+
+  <h2>Reconciling an Invoice</h2>
+  <ol>
+    <li>Open the invoice and click <strong>Reconcile</strong>.</li>
+    <li>Review line items against the actual purchase receipt.</li>
+    <li>Confirm to mark as Reconciled, or flag as Disputed if amounts differ.</li>
+  </ol>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     17. MONTHLY SUMMARY
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 17</div>
+    <div class="chapter-title">Monthly Summary</div>
+    <p class="chapter-intro">
+      The Summary page provides a monthly financial overview of all completed transfer orders.
+      Accessible to Admins and Accountants.
+    </p>
+  </div>
+
+  <div class="callout warning no-break">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body">
+      <div class="callout-title">Only completed orders count</div>
+      <p class="callout-text">
+        The monthly summary only includes orders with <span class="status s-completed">Completed</span> status.
+        Orders that are received but not yet completed, or cancelled, do not appear in the totals.
+        Make sure to complete all received orders before running your monthly reconciliation.
+      </p>
+    </div>
+  </div>
+
+  <h2>Summary Breakdown</h2>
+  <p>The summary shows totals grouped by:</p>
+  <ul>
+    <li><strong>Month</strong> — select the month and year using the date filter</li>
+    <li><strong>Store pair</strong> — e.g. B1→B2, B3→B1, etc.</li>
+    <li><strong>Item</strong> — total quantity and total value transferred per item</li>
+  </ul>
+  <p>All values are based on the <strong>price snapshot</strong> captured at the time each order was completed.</p>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     18. ADMIN TOOLS
+═══════════════════════════════════════════════════════════ -->
+<div class="content page-break">
+  <div class="chapter">
+    <div class="chapter-num">Chapter 18</div>
+    <div class="chapter-title">Admin Tools</div>
+    <p class="chapter-intro">
+      The Admin section is only visible to users with the <span class="role-badge badge-admin" style="font-size:8pt;padding:2px 8px">Admin</span> role.
+    </p>
+  </div>
+
+  <h2>User Management</h2>
+  <p>Navigate to <strong>Admin → Users</strong>.</p>
+  <ul>
+    <li>Create new user accounts with a username, password, role, and associated store.</li>
+    <li>Edit existing users — change role, update password, or deactivate the account.</li>
+    <li>Deactivated users cannot log in.</li>
+  </ul>
+  <div class="callout warning no-break">
+    <div class="callout-icon">🔑</div>
+    <div class="callout-body">
+      <div class="callout-title">Password policy</div>
+      <p class="callout-text">
+        When creating or editing a user, the password is automatically hashed before storage.
+        Admins never see plain-text passwords. Set a strong password (minimum 8 characters)
+        and share it securely with the user.
+      </p>
+    </div>
+  </div>
+
+  <h2>Store Management</h2>
+  <p>Navigate to <strong>Admin → Stores</strong> to view and edit store details (code, name, address, phone). Store codes (B1, B2, B3) are fixed — changing codes would break transfer rules.</p>
+
+  <h2>Audit Log</h2>
+  <p>Navigate to <strong>Admin → Audit Logs</strong> to see a complete, immutable record of every action performed in the system. Each entry records:</p>
+  <ul>
+    <li>Timestamp</li>
+    <li>User who performed the action</li>
+    <li>Action type (create, submit, prepare, ship, receive, complete, cancel, etc.)</li>
+    <li>Target resource (order ID, user ID, etc.)</li>
+    <li>IP address and user agent</li>
+  </ul>
+  <p>Audit logs cannot be deleted or modified. Use them to investigate disputes or track who took a specific action.</p>
+
+  <h2>Pricing Dashboard</h2>
+  <p>Navigate to <strong>Admin → Pricing Dashboard</strong> for a visual overview of the Price Master — active prices, price gaps (items with no current price), and price history graphs per item.</p>
+
+  <div class="callout success no-break">
+    <div class="callout-icon">✅</div>
+    <div class="callout-body">
+      <div class="callout-title">Before month-end checklist</div>
+      <p class="callout-text">
+        1. Complete all orders at Received status.<br/>
+        2. Check the Pricing Dashboard for items with no active price (they will snapshot as ₫0).<br/>
+        3. Review the Summary page to confirm totals match physical records.<br/>
+        4. Reconcile all pending invoices.<br/>
+        5. Review the Audit Log for any unexpected actions.
+      </p>
+    </div>
+  </div>
+
+  <div style="margin-top:48px;padding-top:24px;border-top:1px solid #e2e8f0;text-align:center">
+    <p style="font-size:9pt;color:#94a3b8">Packing List · User Guide v2.0</p>
+    <p style="font-size:8.5pt;color:#cbd5e1;margin-top:4px">For internal use only — Restaurant Operations</p>
+  </div>
+</div>
+
+</body>
+</html>
