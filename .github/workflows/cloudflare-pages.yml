@@ -5,8 +5,8 @@ on:
     branches:
       - master
     paths:
-      # Only trigger on frontend changes
       - 'v2-react/client/**'
+      - 'functions/**'
       - '.github/workflows/cloudflare-pages.yml'
 
   workflow_dispatch:
@@ -35,19 +35,19 @@ jobs:
         working-directory: v2-react/client
         run: npm run build
         env:
-          # GitHub repo → Settings → Secrets and variables → Actions → Variables
-          # VITE_API_BASE_URL = https://api.bakudanramen.com/api
-          # VITE_APP_URL      = https://packinglist.bakudanramen.com
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
-          VITE_APP_URL: ${{ vars.VITE_APP_URL }}
+          # Phase 1: use relative /api — Cloudflare Pages Function proxies to tunnel.
+          # Phase 2: set VITE_API_BASE_URL=https://api.bakudanramen.com/api in repo vars
+          # to bypass the Pages Function once the subdomain DNS is stable.
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/api' }}
+          VITE_APP_URL: ${{ vars.VITE_APP_URL || 'https://packinglist.bakudanramen.com' }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # GitHub repo variable: CLOUDFLARE_PAGES_PROJECT = packing-list-1
           projectName: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'packing-list-1' }}
+          # directory is the static output; functions/ at repo root is auto-detected
           directory: v2-react/client/dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           branch: master
@@ -75,7 +75,7 @@ jobs:
         working-directory: v2-react/client
         run: npm run build
         env:
-          VITE_API_BASE_URL: https://api.bakudanramen.com/api
+          VITE_API_BASE_URL: /api
           VITE_APP_URL: https://packinglist.bakudanramen.com
 
       - name: Upload dist artifact
