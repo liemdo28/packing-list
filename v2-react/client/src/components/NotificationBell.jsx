@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useNotifications from '../hooks/useNotifications';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 export default function NotificationBell() {
   const navigate = useNavigate();

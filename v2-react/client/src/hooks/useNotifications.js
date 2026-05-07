@@ -7,7 +7,7 @@ import api from '../api/axios';
 
 const POLL_INTERVAL = 15000; // Poll every 15 seconds
 
-export default function useNotifications(userId) {
+export function useNotifications(userId) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -99,5 +99,8 @@ export default function useNotifications(userId) {
     markAsRead,
     markAllAsRead,
     refresh,
+    refetch: refresh,
   };
 }
+
+export default useNotifications;

@@ -172,22 +172,27 @@ function emitNotification(userId, notification) {
  * Order event handlers
  */
 async function onOrderCreated(order, actorUser) {
-  const requesterStore = await order.getFromStore();
-  
-  // Notify supplier store
-  const supplierStore = await order.getToStore();
-  await notifyStore(supplierStore.id, supplierStore.name, {
+  const sourceStore = await order.getFromStore();
+  const destinationStore = await order.getToStore();
+
+  // A newly-created draft needs action from the source store first.
+  await notifyStore(sourceStore.id, sourceStore.name, {
     orderId: order.id,
     orderNumber: order.order_number || `ORD-${order.id}`,
     eventType: EVENT_TYPES.ORDER_CREATED,
     title: 'New Order Request',
-    message: `New order from ${requesterStore?.name || 'Unknown'}`,
+    message: `${destinationStore?.name || 'Destination store'} created a new order for ${sourceStore?.name || 'source store'} to review`,
     type: NOTIF_TYPES.ORDER,
-    severity: SEVERITY.MEDIUM,
-    sourceStore: { id: requesterStore?.id, name: requesterStore?.name },
+    severity: SEVERITY.HIGH,
+    sourceStore: { id: destinationStore?.id, name: destinationStore?.name },
+    targetStore: { id: sourceStore?.id, name: sourceStore?.name },
     actorUser,
     deepLinkUrl: `/orders/${order.id}`,
-    metadata: { fromStoreId: requesterStore?.id },
+    metadata: {
+      actionRequiredByStoreId: sourceStore?.id,
+      sourceStoreId: sourceStore?.id,
+      destinationStoreId: destinationStore?.id,
+    },
   });
 
   // Notify admins
@@ -196,10 +201,13 @@ async function onOrderCreated(order, actorUser) {
     orderNumber: order.order_number || `ORD-${order.id}`,
     eventType: EVENT_TYPES.ORDER_CREATED,
     title: 'New Order Created',
-    message: `${requesterStore?.name || 'Unknown'} created order #${order.order_number || order.id}`,
+    message: `${destinationStore?.name || 'Unknown'} created order #${order.order_number || order.id} for ${sourceStore?.name || 'source store'}`,
     type: NOTIF_TYPES.ORDER,
     severity: SEVERITY.LOW,
-    sourceStore: { id: requesterStore?.id, name: requesterStore?.name },
+    sourceStore: { id: destinationStore?.id, name: destinationStore?.name },
+    targetStore: { id: sourceStore?.id, name: sourceStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
   });
 }
 
