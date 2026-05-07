@@ -688,28 +688,42 @@ Write-Ok "npm dependencies installed"
 # -- Step 8: Cloudflare Tunnel -------------------------------------------------
 
 Write-Header "Step 8 of 11 - Cloudflare Tunnel"
-Write-Host ""
-Write-Host "  A browser will open - log in with your Cloudflare account" -ForegroundColor Yellow
-Write-Host "  and select the bakudanramen.com zone." -ForegroundColor Yellow
-Write-Host ""
-Read-Host "  Press Enter to open the browser"
 
-cloudflared tunnel login
+$cfDir   = Join-Path $env:USERPROFILE ".cloudflared"
+$certPem = Join-Path $cfDir "cert.pem"
 
-Write-Info "Creating tunnel 'packing-api'..."
-$tunnelOutput = cloudflared tunnel create packing-api 2>&1 | Out-String
-$uuidMatch    = [regex]::Match($tunnelOutput, "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
-
-if ($uuidMatch.Success) {
-    $TUNNEL_UUID = $uuidMatch.Value
-    Write-Ok "Tunnel UUID: $TUNNEL_UUID"
+if (Test-Path $certPem) {
+    Write-Ok "Cloudflare cert already exists - skipping login"
 } else {
-    Write-Warn "Could not auto-detect UUID. Output was:"
-    Write-Host $tunnelOutput -ForegroundColor Gray
-    $TUNNEL_UUID = Prompt-Value "Enter the tunnel UUID shown above"
+    Write-Host ""
+    Write-Host "  A browser will open - log in with your Cloudflare account" -ForegroundColor Yellow
+    Write-Host "  and select the bakudanramen.com zone." -ForegroundColor Yellow
+    Write-Host ""
+    Read-Host "  Press Enter to open the browser"
+    cloudflared tunnel login
 }
 
-$cfDir      = Join-Path $env:USERPROFILE ".cloudflared"
+Write-Info "Checking for existing tunnel 'packing-api'..."
+$tunnelListOut = cloudflared tunnel list 2>&1 | Out-String
+$existingMatch = [regex]::Match($tunnelListOut, "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s+packing-api")
+
+if ($existingMatch.Success) {
+    $TUNNEL_UUID = $existingMatch.Groups[1].Value
+    Write-Ok "Reusing existing tunnel UUID: $TUNNEL_UUID"
+} else {
+    Write-Info "Creating tunnel 'packing-api'..."
+    $tunnelOutput = cloudflared tunnel create packing-api 2>&1 | Out-String
+    $uuidMatch    = [regex]::Match($tunnelOutput, "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+    if ($uuidMatch.Success) {
+        $TUNNEL_UUID = $uuidMatch.Value
+        Write-Ok "Tunnel UUID: $TUNNEL_UUID"
+    } else {
+        Write-Warn "Could not auto-detect UUID. Output was:"
+        Write-Host $tunnelOutput -ForegroundColor Gray
+        $TUNNEL_UUID = Prompt-Value "Enter the tunnel UUID shown above"
+    }
+}
+
 $cfCredFile = Join-Path $cfDir "$TUNNEL_UUID.json"
 New-Item -ItemType Directory -Force -Path $cfDir | Out-Null
 
@@ -734,8 +748,15 @@ New-Item -ItemType Directory -Force -Path $cfDir | Out-Null
 ) | Set-Content -Path (Join-Path $cfDir "config.yml") -Encoding UTF8
 
 Write-Info "Registering DNS CNAME..."
-cloudflared tunnel route dns packing-api api.bakudanramen.com
-cloudflared service install
+cloudflared tunnel route dns packing-api api.bakudanramen.com 2>&1 | Out-Null
+
+$cfSvc = Get-Service "cloudflared" -ErrorAction SilentlyContinue
+if ($cfSvc) {
+    Write-Ok "cloudflared service already installed - restarting"
+    Restart-Service cloudflared -ErrorAction SilentlyContinue
+} else {
+    cloudflared service install
+}
 Write-Ok "Cloudflare Tunnel configured"
 
 # -- Step 9: Start PM2 ---------------------------------------------------------
