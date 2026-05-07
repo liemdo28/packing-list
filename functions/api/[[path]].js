@@ -2,32 +2,49 @@
  * Cloudflare Pages Function — /api/* proxy
  *
  * Proxies all /api/* requests to the Cloudflare Tunnel backend.
- * The tunnel exposes localhost:3001 (Node.js API) to Cloudflare's network
- * via the cfargotunnel.com internal address, no public DNS required.
- *
- * Phase 2: replace TUNNEL_BASE with VITE_API_BASE_URL once
- * api.bakudanramen.com DNS propagates and the subdomain is stable.
+ * Only forwards safe headers to avoid upstream 405/400 errors from
+ * Cloudflare-internal headers being passed through to the origin.
  */
 
 const TUNNEL_BASE = 'https://5c313804-9d8d-42ef-9fa9-90c4d814718f.cfargotunnel.com';
 
 export async function onRequest(context) {
-  const url = new URL(context.request.url);
+  const url    = new URL(context.request.url);
   const target = TUNNEL_BASE + url.pathname + url.search;
+  const req    = context.request;
+
+  // Forward only safe, origin-relevant headers
+  const fwdHeaders = new Headers();
+  const safe = [
+    'content-type', 'authorization', 'accept', 'accept-language',
+    'cookie', 'x-requested-with', 'cache-control',
+  ];
+  for (const h of safe) {
+    const v = req.headers.get(h);
+    if (v) fwdHeaders.set(h, v);
+  }
 
   const init = {
-    method:   context.request.method,
-    headers:  context.request.headers,
+    method:  req.method,
+    headers: fwdHeaders,
     redirect: 'follow',
   };
 
-  if (!['GET', 'HEAD'].includes(context.request.method)) {
-    init.body   = context.request.body;
+  if (!['GET', 'HEAD'].includes(req.method)) {
+    init.body   = req.body;
     init.duplex = 'half';
   }
 
   try {
-    return await fetch(target, init);
+    const resp = await fetch(target, init);
+    // Return response with CORS header so browser can read it
+    const newHeaders = new Headers(resp.headers);
+    newHeaders.set('Access-Control-Allow-Origin', req.headers.get('origin') || '*');
+    newHeaders.set('Access-Control-Allow-Credentials', 'true');
+    return new Response(resp.body, {
+      status:  resp.status,
+      headers: newHeaders,
+    });
   } catch (err) {
     return new Response(
       JSON.stringify({ error: 'API unavailable', detail: err.message }),
