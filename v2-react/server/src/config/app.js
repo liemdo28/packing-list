@@ -5,30 +5,30 @@ const TRANSFER_RULES = [
   { from: 'B3', to: 'B2' },
 ];
 
-// Must match Laravel config/packinglist.php statuses
 const ORDER_STATUSES = {
-  DRAFT: 'draft',
-  SUBMITTED: 'submitted',
-  PROCESSING: 'processing',           // B1 started preparing
-  READY_TO_SHIP: 'ready_to_ship',     // quantities entered, ready
-  IN_TRANSIT: 'in_transit',           // shipped
-  RECEIVED_PENDING: 'received_pending_confirmation', // receiver acknowledged
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled',
-  DISPUTED: 'disputed',
+  DRAFT:              'draft',
+  SUPPLIER_REVIEWING: 'supplier_reviewing',
+  SUPPLIER_ACCEPTED:  'supplier_accepted',
+  PREPARING:          'preparing',
+  SHIPPING:           'shipping',
+  RECEIVING_REVIEW:   'receiving_review',
+  DISCREPANCY_REVIEW: 'discrepancy_review',
+  COMPLETED:          'completed',
+  SUPPLIER_REJECTED:  'supplier_rejected',
+  CANCELLED:          'cancelled',
 };
 
 const STATUS_TRANSITIONS = {
-  // [current]: [allowed next states]
-  [ORDER_STATUSES.DRAFT]:           [ORDER_STATUSES.SUBMITTED, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.SUBMITTED]:       [ORDER_STATUSES.PROCESSING, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.PROCESSING]:      [ORDER_STATUSES.READY_TO_SHIP, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.READY_TO_SHIP]:   [ORDER_STATUSES.IN_TRANSIT],
-  [ORDER_STATUSES.IN_TRANSIT]:       [ORDER_STATUSES.RECEIVED_PENDING],
-  [ORDER_STATUSES.RECEIVED_PENDING]:[ORDER_STATUSES.COMPLETED, ORDER_STATUSES.DISPUTED],
-  [ORDER_STATUSES.COMPLETED]:        [],
-  [ORDER_STATUSES.CANCELLED]:        [],
-  [ORDER_STATUSES.DISPUTED]:         [],
+  draft:               ['supplier_reviewing', 'cancelled'],
+  supplier_reviewing:  ['supplier_accepted', 'supplier_rejected', 'cancelled'],
+  supplier_accepted:   ['preparing', 'cancelled'],
+  preparing:           ['shipping'],
+  shipping:            ['receiving_review'],
+  receiving_review:    ['completed', 'discrepancy_review'],
+  discrepancy_review:  ['completed', 'cancelled'],
+  completed:           [],
+  supplier_rejected:   [],
+  cancelled:           [],
 };
 
 const ROLES = {

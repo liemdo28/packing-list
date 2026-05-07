@@ -21,23 +21,42 @@ const Order = sequelize.define('Order', {
     allowNull: false,
   },
   status: {
-    // Must match ORDER_STATUSES in config/app.js and Laravel config/packinglist.php
     type: DataTypes.ENUM(
+      // new canonical statuses
       'draft',
+      'supplier_reviewing',
+      'supplier_accepted',
+      'preparing',
+      'shipping',
+      'receiving_review',
+      'discrepancy_review',
+      'completed',
+      'supplier_rejected',
+      'cancelled',
+      // legacy — keep until all in-flight orders are migrated
       'submitted',
       'processing',
       'ready_to_ship',
       'in_transit',
       'received_pending_confirmation',
-      'completed',
-      'cancelled',
       'disputed'
     ),
     defaultValue: 'draft',
   },
-  // Additional timestamps for the extended workflow
   ready_at: {
     type: DataTypes.DATE,
+    allowNull: true,
+  },
+  accepted_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  rejected_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  supplier_note: {
+    type: DataTypes.TEXT,
     allowNull: true,
   },
   notes: {

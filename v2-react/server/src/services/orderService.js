@@ -190,32 +190,53 @@ class OrderService {
       const updateData = { status: newStatus };
 
       switch (newStatus) {
-        case ORDER_STATUSES.SUBMITTED:
+        case ORDER_STATUSES.SUPPLIER_REVIEWING:
           updateData.submitted_at = new Date();
           break;
-        case ORDER_STATUSES.PROCESSING:
+        case ORDER_STATUSES.SUPPLIER_ACCEPTED:
+          updateData.accepted_at = new Date();
+          if (extras.supplier_note) updateData.supplier_note = extras.supplier_note;
+          break;
+        case ORDER_STATUSES.SUPPLIER_REJECTED:
+          updateData.rejected_at = new Date();
+          updateData.cancel_reason = extras.reason || null;
+          if (extras.supplier_note) updateData.supplier_note = extras.supplier_note;
+          break;
+        case ORDER_STATUSES.PREPARING:
           updateData.prepared_at = new Date();
           break;
-        case ORDER_STATUSES.READY_TO_SHIP:
-          updateData.ready_at = new Date();
-          break;
-        case ORDER_STATUSES.IN_TRANSIT:
+        case ORDER_STATUSES.SHIPPING:
           updateData.shipped_at = new Date();
           break;
-        case ORDER_STATUSES.RECEIVED_PENDING:
+        case ORDER_STATUSES.RECEIVING_REVIEW:
           updateData.received_at = new Date();
+          break;
+        case ORDER_STATUSES.DISCREPANCY_REVIEW:
+          // no extra timestamps
           break;
         case ORDER_STATUSES.COMPLETED:
           updateData.completed_at = new Date();
-          // Snapshot prices INSIDE the same locked transaction
           await this._snapshotPrices(orderId, t);
           break;
         case ORDER_STATUSES.CANCELLED:
           updateData.cancelled_at = new Date();
           updateData.cancel_reason = extras.cancel_reason || null;
           break;
-        case ORDER_STATUSES.DISPUTED:
-          updateData.cancel_reason = extras.dispute_reason || null;
+        // Legacy status support
+        case 'submitted':
+          updateData.submitted_at = new Date();
+          break;
+        case 'processing':
+          updateData.prepared_at = new Date();
+          break;
+        case 'ready_to_ship':
+          updateData.ready_at = new Date();
+          break;
+        case 'in_transit':
+          updateData.shipped_at = new Date();
+          break;
+        case 'received_pending_confirmation':
+          updateData.received_at = new Date();
           break;
       }
 
@@ -236,46 +257,109 @@ class OrderService {
   // ─── Public transition methods ──────────────────────────────────────────────
 
   static async submitOrder(orderId, userId) {
-    return this._transition(orderId, ORDER_STATUSES.SUBMITTED, userId);
+    return this._transition(orderId, ORDER_STATUSES.SUPPLIER_REVIEWING, userId);
+  }
+
+  static async acceptOrder(orderId, userId, { lines = [], note } = {}) {
+    const t = await sequelize.transaction();
+    try {
+      const order = await Order.findByPk(orderId, { lock: true, transaction: t });
+      if (!order) throw new Error('Order not found');
+
+      // Persist per-line confirmed quantities
+      await Promise.all(
+        lines.map((l) => {
+          const confirmedQty = parseFloat(l.confirmed_quantity);
+          const itemStatus = confirmedQty !== parseFloat(l.quantity) ? 'adjusted' : 'confirmed';
+          return OrderLine.update(
+            {
+              confirmed_quantity: confirmedQty,
+              supplier_note: l.supplier_note || null,
+              item_status: itemStatus,
+            },
+            { where: { id: l.id, order_id: orderId }, transaction: t }
+          );
+        })
+      );
+
+      await t.commit();
+    } catch (err) {
+      await t.rollback();
+      throw err;
+    }
+
+    return this._transition(orderId, ORDER_STATUSES.SUPPLIER_ACCEPTED, userId, {
+      supplier_note: note,
+    });
+  }
+
+  static async rejectOrder(orderId, userId, { reason, note } = {}) {
+    return this._transition(orderId, ORDER_STATUSES.SUPPLIER_REJECTED, userId, {
+      reason,
+      supplier_note: note,
+    });
   }
 
   static async prepareOrder(orderId, userId) {
-    return this._transition(orderId, ORDER_STATUSES.PROCESSING, userId);
-  }
-
-  static async markReadyToShip(orderId, userId) {
-    return this._transition(orderId, ORDER_STATUSES.READY_TO_SHIP, userId);
+    return this._transition(orderId, ORDER_STATUSES.PREPARING, userId);
   }
 
   static async shipOrder(orderId, userId) {
-    return this._transition(orderId, ORDER_STATUSES.IN_TRANSIT, userId);
+    return this._transition(orderId, ORDER_STATUSES.SHIPPING, userId);
   }
 
-  static async receiveOrder(orderId, userId, lines = []) {
-    // First persist received quantities inside a locked transaction
-    if (lines.length > 0) {
-      const t = await sequelize.transaction();
-      try {
-        const order = await Order.findByPk(orderId, { lock: true, transaction: t });
-        if (!order) throw new Error('Order not found');
+  static async receiveOrder(orderId, userId, { lines = [], note } = {}) {
+    const t = await sequelize.transaction();
+    let hasDiscrepancy = false;
+    try {
+      const order = await Order.findByPk(orderId, { lock: true, transaction: t });
+      if (!order) throw new Error('Order not found');
 
-        await Promise.all(
-          lines.map((l) =>
-            OrderLine.update(
-              { received_quantity: l.received_quantity },
-              { where: { id: l.id, order_id: orderId }, transaction: t }
-            )
-          )
-        );
+      const orderLines = await OrderLine.findAll({
+        where: { order_id: orderId },
+        transaction: t,
+      });
 
-        await t.commit();
-      } catch (err) {
-        await t.rollback();
-        throw err;
-      }
+      await Promise.all(
+        lines.map((l) => {
+          const receivedQty = parseFloat(l.received_quantity);
+          const dbLine = orderLines.find((ol) => ol.id === l.id);
+          const baseline = parseFloat(dbLine?.confirmed_quantity ?? dbLine?.quantity ?? 0);
+          let itemStatus = 'confirmed';
+          if (receivedQty === 0) {
+            itemStatus = 'missing';
+            hasDiscrepancy = true;
+          } else if (receivedQty < baseline) {
+            itemStatus = 'short';
+            hasDiscrepancy = true;
+          }
+          return OrderLine.update(
+            {
+              received_quantity: receivedQty,
+              receiver_note: l.receiver_note || null,
+              item_status: itemStatus,
+            },
+            { where: { id: l.id, order_id: orderId }, transaction: t }
+          );
+        })
+      );
+
+      await t.commit();
+    } catch (err) {
+      await t.rollback();
+      throw err;
     }
 
-    return this._transition(orderId, ORDER_STATUSES.RECEIVED_PENDING, userId);
+    const updated = await this._transition(orderId, ORDER_STATUSES.RECEIVING_REVIEW, userId, {
+      has_discrepancy: hasDiscrepancy,
+    });
+
+    if (hasDiscrepancy) {
+      // Transition to discrepancy_review automatically when discrepancies exist
+      return this._transition(updated.id, ORDER_STATUSES.DISCREPANCY_REVIEW, userId);
+    }
+
+    return updated;
   }
 
   static async completeOrder(orderId, userId) {
@@ -285,12 +369,6 @@ class OrderService {
   static async cancelOrder(orderId, userId, reason) {
     return this._transition(orderId, ORDER_STATUSES.CANCELLED, userId, {
       cancel_reason: reason,
-    });
-  }
-
-  static async disputeOrder(orderId, userId, reason) {
-    return this._transition(orderId, ORDER_STATUSES.DISPUTED, userId, {
-      dispute_reason: reason,
     });
   }
 
