@@ -6,7 +6,7 @@
  * Cloudflare-internal headers being passed through to the origin.
  */
 
-const TUNNEL_BASE = 'https://api.rawsushibar.com';
+const TUNNEL_BASE = 'https://api.bakudanramen.com';
 
 export async function onRequest(context) {
   const url    = new URL(context.request.url);
