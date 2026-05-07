@@ -685,22 +685,9 @@ if ($script:TG_TOKEN -and (Test-Path "$REPO_DIR\telegram\package.json")) {
 }
 Write-Ok "npm dependencies installed"
 
-# -- Step 8: Seed database -----------------------------------------------------
+# -- Step 8: Cloudflare Tunnel -------------------------------------------------
 
-Write-Header "Step 8 of 11 - Seeding Database"
-
-$env:SEED_ADMIN_PASS = $script:ADMIN_PASS
-$env:SEED_STORE_PASS = $script:STORE_PASS
-$env:SEED_ACCT_PASS  = $script:ACCT_PASS
-
-Push-Location "$REPO_DIR\v2-react\server"
-node src/seeders/seed-prod.js
-Pop-Location
-Write-Ok "Stores and users created"
-
-# -- Step 9: Cloudflare Tunnel -------------------------------------------------
-
-Write-Header "Step 9 of 11 - Cloudflare Tunnel"
+Write-Header "Step 8 of 11 - Cloudflare Tunnel"
 Write-Host ""
 Write-Host "  A browser will open - log in with your Cloudflare account" -ForegroundColor Yellow
 Write-Host "  and select the bakudanramen.com zone." -ForegroundColor Yellow
@@ -751,9 +738,9 @@ cloudflared tunnel route dns packing-api api.bakudanramen.com
 cloudflared service install
 Write-Ok "Cloudflare Tunnel configured"
 
-# -- Step 10: Start PM2 --------------------------------------------------------
+# -- Step 9: Start PM2 ---------------------------------------------------------
 
-Write-Header "Step 10 of 11 - Starting Services"
+Write-Header "Step 9 of 11 - Starting Services"
 
 $apiDir = Join-Path $REPO_DIR "v2-react\server"
 $monDir = Join-Path $REPO_DIR "monitoring"
@@ -789,6 +776,42 @@ Pop-Location
 Write-Info "Registering PM2 as Windows startup service..."
 pm2-service-install -n PM2 --unattended 2>&1 | Out-Null
 Write-Ok "PM2 services running and registered for auto-start"
+
+# -- Step 10: Seed Database (after API is up and tables exist) -----------------
+
+Write-Header "Step 10 of 11 - Seeding Database"
+Write-Info "Waiting for API to start and create database tables..."
+
+$apiReady = $false
+for ($i = 0; $i -lt 15; $i++) {
+    Start-Sleep -Seconds 3
+    try {
+        $h = Invoke-RestMethod "http://localhost:3001/health" -TimeoutSec 5 -ErrorAction Stop
+        if ($h.status -eq 'ok') { $apiReady = $true; break }
+    } catch {}
+    Write-Info "  waiting... ($([int](($i+1)*3))s)"
+}
+
+if ($apiReady) {
+    Write-Ok "API is up - running seeder"
+    $env:SEED_ADMIN_PASS = $script:ADMIN_PASS
+    $env:SEED_STORE_PASS = $script:STORE_PASS
+    $env:SEED_ACCT_PASS  = $script:ACCT_PASS
+    Push-Location "$REPO_DIR\v2-react\server"
+    $seedOut = node src/seeders/seed-prod.js 2>&1 | Out-String
+    $seedExit = $LASTEXITCODE
+    Pop-Location
+    if ($seedExit -eq 0) {
+        Write-Ok "Stores and users created"
+    } else {
+        Write-Warn "Seeder exited with code $seedExit - output:"
+        Write-Host $seedOut -ForegroundColor Gray
+        Write-Warn "You can re-run manually: cd $REPO_DIR\v2-react\server && node src/seeders/seed-prod.js"
+    }
+} else {
+    Write-Warn "API did not respond after 45s - skipping seeder"
+    Write-Warn "After fixing the API, run: cd $REPO_DIR\v2-react\server && node src/seeders/seed-prod.js"
+}
 
 # -- Step 11: Verification & Report -------------------------------------------
 
