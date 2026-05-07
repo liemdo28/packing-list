@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Operations System - User Guide</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; }
+        .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+        .header { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 40px; border-radius: 12px; margin-bottom: 30px; }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { opacity: 0.9; font-size: 1.1em; }
+        .version { display: inline-block; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; font-size: 0.9em; margin-top: 15px; }
+        .toc { background: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .toc h2 { color: #1d4ed8; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+        .toc ol { padding-left: 25px; }
+        .toc li { margin: 10px 0; }
+        .toc a { color: #2563eb; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        .section { background: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section h2 { color: #1d4ed8; font-size: 1.8em; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+        .section h3 { color: #475569; font-size: 1.3em; margin: 25px 0 15px; }
+        .section p { margin-bottom: 15px; color: #4b5563; }
+        .workflow { background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; font-family: monospace; white-space: pre-wrap; border-left: 4px solid #2563eb; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px 15px; text-align: left; border: 1px solid #e5e7eb; }
+        th { background: #f8fafc; font-weight: 600; color: #475569; }
+        tr:hover { background: #f8fafc; }
+        .step { background: #eff6ff; padding: 15px 20px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #2563eb; }
+        .step-number { display: inline-block; background: #2563eb; color: white; width: 25px; height: 25px; border-radius: 50%; text-align: center; line-height: 25px; margin-right: 10px; font-size: 0.85em; }
+        .highlight { background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #f59e0b; }
+        .highlight strong { color: #92400e; }
+        .faq { margin: 15px 0; }
+        .faq q { display: block; font-weight: 600; color: #1d4ed8; margin-bottom: 5px; }
+        .faq p { padding-left: 20px; color: #475569; }
+        .footer { text-align: center; color: #9ca3af; font-size: 0.9em; padding: 30px; }
+        @media print {
+            body { background: white; }
+            .section { box-shadow: none; border: 1px solid #e5e7eb; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Restaurant Operations System</h1>
+            <p>User Guide for Staff Members</p>
+            <span class="version">Version 2.0 - May 2026</span>
+        </div>
+
+        <div class="toc">
+            <h2>Table of Contents</h2>
+            <ol>
+                <li><a href="#getting-started">Getting Started</a></li>
+                <li><a href="#dashboard">Dashboard</a></li>
+                <li><a href="#orders">Orders Management</a></li>
+                <li><a href="#notifications">Notifications</a></li>
+                <li><a href="#packing">Packing</a></li>
+                <li><a href="#faq">FAQ & Troubleshooting</a></li>
+            </ol>
+        </div>
+
+        <div class="section" id="getting-started">
+            <h2>1. Getting Started</h2>
+            
+            <h3>1.1 Login</h3>
+            <div class="step">
+                <span class="step-number">1</span>Open the application URL in your browser
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>Enter your Username and Password
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>Click Sign In
+            </div>
+            <div class="step">
+                <span class="step-number">4</span>You will be redirected to the Dashboard
+            </div>
+
+            <h3>1.2 User Roles</h3>
+            <table>
+                <tr><th>Role</th><th>Description</th></tr>
+                <tr><td><strong>Admin</strong></td><td>Full system access, manage users, stores, settings</td></tr>
+                <tr><td><strong>B1 (Branch 1)</strong></td><td>Create orders, manage items, view reports</td></tr>
+                <tr><td><strong>B2 (Branch 2)</strong></td><td>Manage orders, invoices, packing</td></tr>
+                <tr><td><strong>B3 (Branch 3)</strong></td><td>Supplier role, receive and fulfill orders</td></tr>
+                <tr><td><strong>Accountant</strong></td><td>View invoices, pricing, financial reports</td></tr>
+            </table>
+
+            <h3>1.3 Navigation</h3>
+            <p><strong>Left Sidebar:</strong> Main menu with all sections</p>
+            <p><strong>Top Right:</strong> Notification bell and user profile</p>
+            <p><strong>Main Content Area:</strong> Displays current section</p>
+        </div>
+
+        <div class="section" id="dashboard">
+            <h2>2. Dashboard</h2>
+            
+            <p>The Dashboard provides a quick overview of your daily activities.</p>
+
+            <h3>2.1 Dashboard Widgets</h3>
+            <ul>
+                <li><strong>Today's Orders:</strong> Number of orders created today</li>
+                <li><strong>Pending Actions:</strong> Orders waiting for your action</li>
+                <li><strong>Recent Activity:</strong> Latest order status changes</li>
+                <li><strong>Quick Actions:</strong> Create new order, view pending items</li>
+            </ul>
+
+            <h3>2.2 Quick Actions</h3>
+            <p>From the dashboard, you can:</p>
+            <ul>
+                <li>Create a new order</li>
+                <li>View your pending tasks</li>
+                <li>Check delayed orders</li>
+                <li>Access recent orders</li>
+            </ul>
+        </div>
+
+        <div class="section" id="orders">
+            <h2>3. Orders Management</h2>
+
+            <h3>3.1 Order Workflow</h3>
+            <div class="workflow">DRAFT → SUBMITTED → PREPARING → SHIPPING → RECEIVED → COMPLETED
+                    ↓
+                 CANCELLED</div>
+
+            <h3>3.2 Creating an Order (B1 Role)</h3>
+            <div class="step">
+                <span class="step-number">1</span>Go to Orders in the sidebar
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>Click Create Order
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>Select From Store (your store) and To Store (supplier)
+            </div>
+            <div class="step">
+                <span class="step-number">4</span>Add items with quantities
+            </div>
+            <div class="step">
+                <span class="step-number">5</span>Add optional notes
+            </div>
+            <div class="step">
+                <span class="step-number">6</span>Click Create Order
+            </div>
+
+            <div class="highlight">
+                <strong>Important:</strong> Orders start as Draft and must be submitted to begin processing. Draft orders are not visible to suppliers until submitted.
+            </div>
+
+            <h3>3.3 Order Actions by Role</h3>
+            <h4>For B1 (Requester Store):</h4>
+            <table>
+                <tr><th>Status</th><th>Actions Available</th></tr>
+                <tr><td>Draft</td><td>Edit, Delete, Submit</td></tr>
+                <tr><td>Submitted</td><td>Cancel (with reason)</td></tr>
+                <tr><td>Preparing</td><td>View progress</td></tr>
+                <tr><td>Shipped</td><td>Acknowledge receipt</td></tr>
+                <tr><td>Completed</td><td>View invoice</td></tr>
+                <tr><td>Cancelled</td><td>View cancellation reason</td></tr>
+            </table>
+
+            <h4>For B3 (Supplier Store):</h4>
+            <table>
+                <tr><th>Status</th><th>Actions Available</th></tr>
+                <tr><td>Submitted</td><td>Review & Accept or Reject</td></tr>
+                <tr><td>Accepted</td><td>Start Preparing</td></tr>
+                <tr><td>Preparing</td><td>Mark as Ready</td></tr>
+                <tr><td>Ready</td><td>Confirm Shipment</td></tr>
+            </table>
+
+            <h3>3.4 Order Detail Page</h3>
+            <p>Click on any order to view:</p>
+            <ul>
+                <li>Order number and date</li>
+                <li>Source and destination stores</li>
+                <li>Item list with quantities</li>
+                <li>Current status</li>
+                <li>Activity timeline</li>
+                <li>Notes and comments</li>
+            </ul>
+
+            <h3>3.5 Filtering Orders</h3>
+            <p>Use the filter options to find orders by:</p>
+            <ul>
+                <li>Status (Draft, Submitted, Preparing, etc.)</li>
+                <li>Store (From/To)</li>
+                <li>Date range</li>
+                <li>Order number search</li>
+            </ul>
+        </div>
+
+        <div class="section" id="notifications">
+            <h2>4. Notifications</h2>
+
+            <h3>4.1 Notification Bell</h3>
+            <p>The notification bell is located in the <strong>top-right corner</strong> of the screen.</p>
+            <ul>
+                <li><strong>Red badge:</strong> Shows number of unread notifications</li>
+                <li><strong>Click:</strong> Opens notification dropdown</li>
+            </ul>
+
+            <h3>4.2 Notification Types</h3>
+            <table>
+                <tr><th>Type</th><th>Description</th><th>Color</th></tr>
+                <tr><td>Order</td><td>Order status updates</td><td>Blue</td></tr>
+                <tr><td>Shipment</td><td>Shipping/delivery updates</td><td>Purple</td></tr>
+                <tr><td>Discrepancy</td><td>Quantity mismatch alerts</td><td>Red</td></tr>
+                <tr><td>Alert</td><td>Important system alerts</td><td>Orange</td></tr>
+            </table>
+
+            <h3>4.3 Severity Levels</h3>
+            <table>
+                <tr><th>Level</th><th>Meaning</th></tr>
+                <tr><td>Low</td><td>Informational only</td></tr>
+                <tr><td>Medium</td><td>Normal workflow updates</td></tr>
+                <tr><td>High</td><td>Needs attention soon</td></tr>
+                <tr><td>Critical</td><td>Immediate action required</td></tr>
+            </table>
+
+            <h3>4.4 Viewing Notifications</h3>
+            <div class="step">
+                <span class="step-number">1</span>Click the bell icon in the top-right
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>View recent notifications in the dropdown
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>Click any notification to open the related order
+            </div>
+            <div class="step">
+                <span class="step-number">4</span>Click "View all notifications" for full history
+            </div>
+
+            <h3>4.5 Notification Page</h3>
+            <p>Navigate to <strong>Notifications</strong> from the sidebar for:</p>
+            <ul>
+                <li>Full notification history</li>
+                <li>Filter by type, status, severity</li>
+                <li>Mark as read</li>
+                <li>Mark all as read</li>
+            </ul>
+
+            <h3>4.6 What Triggers Notifications</h3>
+            <table>
+                <tr><th>Event</th><th>Who Receives</th></tr>
+                <tr><td>New order created</td><td>Supplier store users</td></tr>
+                <tr><td>Order submitted</td><td>Supplier store users</td></tr>
+                <tr><td>Order accepted</td><td>Requester store users</td></tr>
+                <tr><td>Order rejected</td><td>Requester store users + Admin</td></tr>
+                <tr><td>Quantity changed</td><td>Requester store users</td></tr>
+                <tr><td>Order shipped</td><td>Requester store users</td></tr>
+                <tr><td>Order received</td><td>Supplier store users</td></tr>
+                <tr><td>Order completed</td><td>Both stores + Admin</td></tr>
+                <tr><td>Discrepancy detected</td><td>Supplier + Admin</td></tr>
+            </table>
+        </div>
+
+        <div class="section" id="packing">
+            <h2>5. Packing</h2>
+
+            <h3>5.1 Packing Overview</h3>
+            <p>The Packing feature helps manage physical packing and delivery of orders.</p>
+
+            <h3>5.2 Creating a Packing Job</h3>
+            <div class="step">
+                <span class="step-number">1</span>Go to Packing in the sidebar
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>Click Create Packing
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>Select the order to pack
+            </div>
+            <div class="step">
+                <span class="step-number">4</span>Add items with actual packed quantities
+            </div>
+            <div class="step">
+                <span class="step-number">5</span>Save the packing job
+            </div>
+
+            <h3>5.3 Packing Templates</h3>
+            <p>Create reusable templates for common packing configurations:</p>
+            <div class="step">
+                <span class="step-number">1</span>Go to Packing Templates
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>Click Create Template
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>Define template name and items
+            </div>
+            <div class="step">
+                <span class="step-number">4</span>Save for future use
+            </div>
+        </div>
+
+        <div class="section" id="faq">
+            <h2>6. FAQ & Troubleshooting</h2>
+
+            <div class="faq">
+                <q>Q: I can't see the Orders menu</q>
+                <p>A: Your role may not have order permissions. Contact your administrator.</p>
+            </div>
+
+            <div class="faq">
+                <q>Q: Why isn't my notification bell updating?</q>
+                <p>A: Refresh the page. Notifications update every 15 seconds automatically.</p>
+            </div>
+
+            <div class="faq">
+                <q>Q: I created an order but the supplier hasn't seen it</q>
+                <p>A: Make sure you clicked Submit after creating the order. Draft orders are not sent to suppliers.</p>
+            </div>
+
+            <div class="faq">
+                <q>Q: Can I edit an order after submitting?</q>
+                <p>A: Only draft orders can be edited. Once submitted, contact the supplier to reject and recreate.</p>
+            </div>
+
+            <div class="faq">
+                <q>Q: What happens if quantities are wrong?</q>
+                <p>A: If a discrepancy is detected during receiving, an alert is sent to the supplier and admin.</p>
+            </div>
+
+            <div class="faq">
+                <q>Q: How do I cancel an order?</q>
+                <p>A: For draft orders, click Delete. For submitted orders, click Cancel and provide a reason.</p>
+            </div>
+
+            <h3>Quick Reference</h3>
+            <h4>Order Status Meanings</h4>
+            <table>
+                <tr><th>Status</th><th>Meaning</th></tr>
+                <tr><td>Draft</td><td>Created but not submitted</td></tr>
+                <tr><td>Submitted</td><td>Sent to supplier, awaiting review</td></tr>
+                <tr><td>Preparing</td><td>Supplier is preparing the order</td></tr>
+                <tr><td>Ready to Ship</td><td>Order packed and ready</td></tr>
+                <tr><td>Shipped</td><td>Order in transit</td></tr>
+                <tr><td>Received</td><td>Order arrived at destination</td></tr>
+                <tr><td>Completed</td><td>Order fully processed</td></tr>
+                <tr><td>Cancelled</td><td>Order cancelled</td></tr>
+            </table>
+
+            <h4>Common Actions</h4>
+            <table>
+                <tr><th>Task</th><th>Location</th></tr>
+                <tr><td>Create Order</td><td>Orders → Create Order</td></tr>
+                <tr><td>Submit Order</td><td>Order Detail → Submit button</td></tr>
+                <tr><td>View Notifications</td><td>Top-right bell icon</td></tr>
+                <tr><td>Change Password</td><td>User menu (top-right)</td></tr>
+                <tr><td>Contact Admin</td><td>Use /admin command or email</td></tr>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>Restaurant Operations System v2.0</p>
+            <p>For technical issues or questions, contact your system administrator.</p>
+        </div>
+    </div>
+</body>
+</html>
