@@ -60,9 +60,8 @@ class NotificationService {
 
     const statusMessages = {
       submitted: `Order ${order.order_number} has been submitted (${fromStore.code} -> ${toStore.code})`,
-      preparing: `Order ${order.order_number} is being prepared`,
-      shipped: `Order ${order.order_number} has been shipped`,
-      received: `Order ${order.order_number} has been received by ${toStore.code}`,
+      preparing: `Order ${order.order_number} is being prepared by ${fromStore.code}`,
+      received:  `Order ${order.order_number} has been received by ${toStore.code}`,
       completed: `Order ${order.order_number} has been completed`,
       cancelled: `Order ${order.order_number} has been cancelled`,
     };

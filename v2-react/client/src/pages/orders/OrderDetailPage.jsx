@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline';
-import { getOrder, submitOrder, prepareOrder, shipOrder, receiveOrder, completeOrder, cancelOrder } from '../../api/orders';
+import { getOrder, submitOrder, prepareOrder, receiveOrder, completeOrder, cancelOrder } from '../../api/orders';
 import Badge from '../../components/Badge';
 import Alert from '../../components/Alert';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -12,7 +12,7 @@ import { formatDateTime, formatCurrency } from '../../utils/formatters';
 import { canPerformAction } from '../../utils/helpers';
 import { STATUS_LABELS } from '../../utils/constants';
 
-const TIMELINE_STEPS = ['draft', 'submitted', 'preparing', 'shipped', 'received', 'completed'];
+const TIMELINE_STEPS = ['draft', 'submitted', 'preparing', 'received', 'completed'];
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -182,7 +182,6 @@ export default function OrderDetailPage() {
               <div><dt className="text-gray-500">Created At</dt><dd>{formatDateTime(order.created_at)}</dd></div>
               {order.submitted_at && <div><dt className="text-gray-500">Submitted</dt><dd>{formatDateTime(order.submitted_at)}</dd></div>}
               {order.prepared_at && <div><dt className="text-gray-500">Prepared</dt><dd>{formatDateTime(order.prepared_at)}</dd></div>}
-              {order.shipped_at && <div><dt className="text-gray-500">Shipped</dt><dd>{formatDateTime(order.shipped_at)}</dd></div>}
               {order.received_at && <div><dt className="text-gray-500">Received</dt><dd>{formatDateTime(order.received_at)}</dd></div>}
               {order.completed_at && <div><dt className="text-gray-500">Completed</dt><dd>{formatDateTime(order.completed_at)}</dd></div>}
               {order.notes && <div><dt className="text-gray-500">Notes</dt><dd>{order.notes}</dd></div>}
@@ -201,11 +200,6 @@ export default function OrderDetailPage() {
               {canPerformAction(user?.role, order.status, 'prepare') && (
                 <button onClick={() => handleAction(prepareOrder, 'moved to preparing')} disabled={actionLoading} className="btn-primary w-full">
                   Start Preparing
-                </button>
-              )}
-              {canPerformAction(user?.role, order.status, 'ship') && (
-                <button onClick={() => handleAction(shipOrder, 'shipped')} disabled={actionLoading} className="btn-primary w-full">
-                  Mark as Shipped
                 </button>
               )}
               {canPerformAction(user?.role, order.status, 'receive') && (

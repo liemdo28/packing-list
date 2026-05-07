@@ -5,30 +5,23 @@ const TRANSFER_RULES = [
   { from: 'B3', to: 'B2' },
 ];
 
-// Must match Laravel config/packinglist.php statuses
 const ORDER_STATUSES = {
   DRAFT: 'draft',
   SUBMITTED: 'submitted',
-  PROCESSING: 'processing',           // B1 started preparing
-  READY_TO_SHIP: 'ready_to_ship',     // quantities entered, ready
-  IN_TRANSIT: 'in_transit',           // shipped
-  RECEIVED_PENDING: 'received_pending_confirmation', // receiver acknowledged
+  PREPARING: 'preparing',   // source store is packing
+  RECEIVED: 'received',     // destination store confirmed receipt
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
-  DISPUTED: 'disputed',
 };
 
 const STATUS_TRANSITIONS = {
   // [current]: [allowed next states]
-  [ORDER_STATUSES.DRAFT]:           [ORDER_STATUSES.SUBMITTED, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.SUBMITTED]:       [ORDER_STATUSES.PROCESSING, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.PROCESSING]:      [ORDER_STATUSES.READY_TO_SHIP, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.READY_TO_SHIP]:   [ORDER_STATUSES.IN_TRANSIT],
-  [ORDER_STATUSES.IN_TRANSIT]:       [ORDER_STATUSES.RECEIVED_PENDING],
-  [ORDER_STATUSES.RECEIVED_PENDING]:[ORDER_STATUSES.COMPLETED, ORDER_STATUSES.DISPUTED],
-  [ORDER_STATUSES.COMPLETED]:        [],
-  [ORDER_STATUSES.CANCELLED]:        [],
-  [ORDER_STATUSES.DISPUTED]:         [],
+  [ORDER_STATUSES.DRAFT]:      [ORDER_STATUSES.SUBMITTED, ORDER_STATUSES.CANCELLED],
+  [ORDER_STATUSES.SUBMITTED]:  [ORDER_STATUSES.PREPARING, ORDER_STATUSES.CANCELLED],
+  [ORDER_STATUSES.PREPARING]:  [ORDER_STATUSES.RECEIVED, ORDER_STATUSES.CANCELLED],
+  [ORDER_STATUSES.RECEIVED]:   [ORDER_STATUSES.COMPLETED],
+  [ORDER_STATUSES.COMPLETED]:  [],
+  [ORDER_STATUSES.CANCELLED]:  [],
 };
 
 const ROLES = {

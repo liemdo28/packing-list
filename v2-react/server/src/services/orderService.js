@@ -193,16 +193,10 @@ class OrderService {
         case ORDER_STATUSES.SUBMITTED:
           updateData.submitted_at = new Date();
           break;
-        case ORDER_STATUSES.PROCESSING:
+        case ORDER_STATUSES.PREPARING:
           updateData.prepared_at = new Date();
           break;
-        case ORDER_STATUSES.READY_TO_SHIP:
-          updateData.ready_at = new Date();
-          break;
-        case ORDER_STATUSES.IN_TRANSIT:
-          updateData.shipped_at = new Date();
-          break;
-        case ORDER_STATUSES.RECEIVED_PENDING:
+        case ORDER_STATUSES.RECEIVED:
           updateData.received_at = new Date();
           break;
         case ORDER_STATUSES.COMPLETED:
@@ -213,9 +207,6 @@ class OrderService {
         case ORDER_STATUSES.CANCELLED:
           updateData.cancelled_at = new Date();
           updateData.cancel_reason = extras.cancel_reason || null;
-          break;
-        case ORDER_STATUSES.DISPUTED:
-          updateData.cancel_reason = extras.dispute_reason || null;
           break;
       }
 
@@ -240,15 +231,7 @@ class OrderService {
   }
 
   static async prepareOrder(orderId, userId) {
-    return this._transition(orderId, ORDER_STATUSES.PROCESSING, userId);
-  }
-
-  static async markReadyToShip(orderId, userId) {
-    return this._transition(orderId, ORDER_STATUSES.READY_TO_SHIP, userId);
-  }
-
-  static async shipOrder(orderId, userId) {
-    return this._transition(orderId, ORDER_STATUSES.IN_TRANSIT, userId);
+    return this._transition(orderId, ORDER_STATUSES.PREPARING, userId);
   }
 
   static async receiveOrder(orderId, userId, lines = []) {
@@ -275,7 +258,7 @@ class OrderService {
       }
     }
 
-    return this._transition(orderId, ORDER_STATUSES.RECEIVED_PENDING, userId);
+    return this._transition(orderId, ORDER_STATUSES.RECEIVED, userId);
   }
 
   static async completeOrder(orderId, userId) {
@@ -288,9 +271,10 @@ class OrderService {
     });
   }
 
+  // kept for legacy compatibility — no longer part of the main workflow
   static async disputeOrder(orderId, userId, reason) {
-    return this._transition(orderId, ORDER_STATUSES.DISPUTED, userId, {
-      dispute_reason: reason,
+    return this._transition(orderId, ORDER_STATUSES.CANCELLED, userId, {
+      cancel_reason: reason,
     });
   }
 

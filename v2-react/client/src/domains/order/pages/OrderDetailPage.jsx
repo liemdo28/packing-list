@@ -5,7 +5,6 @@ import {
   getOrder,
   submitOrder,
   prepareOrder,
-  shipOrder,
   receiveOrder,
   completeOrder,
   cancelOrder,
@@ -30,7 +29,6 @@ import {
 const ACTION_HANDLERS = {
   submit: (id) => submitOrder(id),
   prepare: (id) => prepareOrder(id),
-  ship: (id) => shipOrder(id),
   receive: (id) => receiveOrder(id),
   complete: (id) => completeOrder(id),
   cancel: (id, payload) => cancelOrder(id, payload),
@@ -295,8 +293,8 @@ export default function OrderDetailPage() {
                 <dd className="font-medium text-gray-900">{formatDateTime(order.submitted_at)}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-gray-500">Shipped</dt>
-                <dd className="font-medium text-gray-900">{formatDateTime(order.shipped_at)}</dd>
+                <dt className="text-gray-500">Received</dt>
+                <dd className="font-medium text-gray-900">{formatDateTime(order.received_at)}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <dt className="text-gray-500">Completed</dt>
