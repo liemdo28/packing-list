@@ -753,7 +753,9 @@ try { $null = & cloudflared tunnel route dns packing-api api.bakudanramen.com 2>
 $cfSvc = Get-Service "cloudflared" -ErrorAction SilentlyContinue
 if ($cfSvc) {
     Write-Ok "cloudflared service already installed - restarting"
-    Restart-Service cloudflared -ErrorAction SilentlyContinue
+    Stop-Service cloudflared -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
+    Start-Service cloudflared -ErrorAction SilentlyContinue
 } else {
     cloudflared service install
 }
