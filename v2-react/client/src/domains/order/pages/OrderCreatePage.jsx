@@ -53,14 +53,7 @@ export default function OrderCreatePage() {
   const fromStore = stores.find(s => s.id === parseInt(fromStoreId, 10));
   const toStore   = stores.find(s => s.id === parseInt(toStoreId, 10));
 
-  // Items filtered by source store:
-  // - from B3 → only Noodles (Thick/Thin Noodle)
-  // - from B1 → all items except Noodles
-  const filteredItems = fromStore
-    ? fromStore.code === 'B3'
-      ? items.filter(i => i.category === 'Noodles')
-      : items.filter(i => i.category !== 'Noodles')
-    : items;
+  const filteredItems = items;
 
   const availableDestinations = stores.filter(s => {
     if (!fromStore) return false;
