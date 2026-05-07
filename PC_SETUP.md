@@ -307,7 +307,7 @@ pm2 logs packing-monitor --lines 20
 ## Daily Operations
 
 | Task | Command |
-|------|------|
+|------|---------|
 | View all services | `pm2 list` |
 | Restart API | `pm2 restart packing-api` |
 | Restart monitor | `pm2 restart packing-monitor` |

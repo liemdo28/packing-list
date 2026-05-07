@@ -7,7 +7,7 @@
 $ErrorActionPreference = "Stop"
 $REPO_DIR = $PSScriptRoot
 
-# ── Helpers ───────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Write-Header($msg) {
     Write-Host ""
@@ -57,7 +57,7 @@ function Refresh-Path {
                 [System.Environment]::GetEnvironmentVariable("PATH","User")
 }
 
-# ── Admin elevation ─────────────────────────────────────────────────
+# ── Admin elevation ────────────────────────────────────────────────────────────
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
            ).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")
@@ -68,7 +68,7 @@ if (-not $isAdmin) {
     Exit
 }
 
-# ── Banner ─────────────────────────────────────────────────────
+# ── Banner ─────────────────────────────────────────────────────────────────────
 
 Clear-Host
 Write-Header "Packing List System - Windows Installer"
@@ -85,7 +85,7 @@ Write-Host "  One step requires a browser login to Cloudflare." -ForegroundColor
 Write-Host ""
 Read-Host "  Press Enter to begin"
 
-# ── Step 1: Collect all inputs upfront ───────────────────────────────────
+# ── Step 1: Collect all inputs upfront ────────────────────────────────────────
 
 Write-Header "Step 1 of 10 — Configuration"
 Write-Host ""
@@ -113,6 +113,7 @@ $SHEET_URL = Prompt-Optional "Google Sheet CSV export URL"
 Write-Host ""
 Write-Host "  Generating JWT secret..." -ForegroundColor Gray
 
+# Generate 64-byte random hex JWT secret using PowerShell crypto
 $rng   = [System.Security.Cryptography.RNGCryptoServiceProvider]::Create()
 $bytes = New-Object byte[] 64
 $rng.GetBytes($bytes)
@@ -120,7 +121,7 @@ $JWT_SECRET = -join ($bytes | ForEach-Object { $_.ToString("x2") })
 
 Write-Ok "Configuration collected. Starting automated install..."
 
-# ── Step 2: Chocolatey ────────────────────────────────────────────
+# ── Step 2: Chocolatey ────────────────────────────────────────────────────────
 
 Write-Header "Step 2 of 10 — Package Manager (Chocolatey)"
 
@@ -135,11 +136,12 @@ if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
     Write-Ok "Chocolatey already installed"
 }
 
-# ── Step 3: Install packages ──────────────────────────────────────────
+# ── Step 3: Install packages ──────────────────────────────────────────────────
 
 Write-Header "Step 3 of 10 — Installing Dependencies"
 Write-Info "This may take 5-10 minutes..."
 
+# Install each package; skip if already installed
 $packages = @("nodejs-lts", "git", "mariadb", "cloudflared")
 foreach ($pkg in $packages) {
     Write-Info "Installing $pkg..."
@@ -149,7 +151,7 @@ foreach ($pkg in $packages) {
 Refresh-Path
 Write-Ok "Node.js, Git, MariaDB, cloudflared installed"
 
-# ── Step 4: PM2 ──────────────────────────────────────────────────
+# ── Step 4: PM2 ───────────────────────────────────────────────────────────────
 
 Write-Header "Step 4 of 10 — PM2 Process Manager"
 
@@ -157,10 +159,11 @@ npm install -g pm2 pm2-windows-service --silent 2>&1 | Out-Null
 Refresh-Path
 Write-Ok "PM2 installed"
 
-# ── Step 5: Database setup ─────────────────────────────────────────
+# ── Step 5: Database setup ────────────────────────────────────────────────────
 
 Write-Header "Step 5 of 10 — Database Setup"
 
+# Start MariaDB service
 $svcName = if (Get-Service "MariaDB" -ErrorAction SilentlyContinue) { "MariaDB" } else { "MySQL" }
 Start-Service $svcName -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 3
@@ -185,10 +188,11 @@ try {
     Write-Ok "Database setup complete"
 }
 
-# ── Step 6: Create .env files ────────────────────────────────────────
+# ── Step 6: Create .env files ─────────────────────────────────────────────────
 
 Write-Header "Step 6 of 10 — Configuration Files"
 
+# API .env
 @"
 NODE_ENV=production
 PORT=3001
@@ -208,6 +212,7 @@ GOOGLE_SHEET_CSV_URL=$SHEET_URL
 PRICING_SYNC_INTERVAL_MS=3600000
 "@ | Out-File "$REPO_DIR\v2-react\server\.env" -Encoding UTF8
 
+# Monitoring .env
 @"
 API_BASE_URL=https://api.bakudanramen.com
 MEMORY_WARN_MB=400
@@ -235,6 +240,7 @@ DISK_WARN_PERCENT=80
 DISK_CRIT_PERCENT=90
 "@ | Out-File "$REPO_DIR\monitoring\.env" -Encoding UTF8
 
+# Telegram .env (if token provided)
 if ($TG_TOKEN) {
     @"
 TELEGRAM_BOT_TOKEN=$TG_TOKEN
@@ -244,7 +250,7 @@ API_BASE_URL=https://api.bakudanramen.com/api
 
 Write-Ok ".env files created"
 
-# ── Step 7: npm install ────────────────────────────────────────────
+# ── Step 7: npm install ───────────────────────────────────────────────────────
 
 Write-Header "Step 7 of 10 — Installing npm Dependencies"
 
@@ -267,7 +273,7 @@ if ($TG_TOKEN -and (Test-Path "$REPO_DIR\telegram\package.json")) {
 
 Write-Ok "npm dependencies installed"
 
-# ── Step 8: Seed database ──────────────────────────────────────────
+# ── Step 8: Seed database ─────────────────────────────────────────────────────
 
 Write-Header "Step 8 of 10 — Seeding Database"
 
@@ -281,7 +287,7 @@ Pop-Location
 
 Write-Ok "Stores and users created"
 
-# ── Step 9: Cloudflare Tunnel ────────────────────────────────────────
+# ── Step 9: Cloudflare Tunnel ─────────────────────────────────────────────────
 
 Write-Header "Step 9 of 10 — Cloudflare Tunnel"
 Write-Host ""
@@ -309,6 +315,7 @@ if ($uuidMatch.Success) {
     $TUNNEL_UUID = Prompt-Value "Enter the tunnel UUID shown above"
 }
 
+# Write cloudflared config
 $cfDir = "$env:USERPROFILE\.cloudflared"
 New-Item -ItemType Directory -Force -Path $cfDir | Out-Null
 
@@ -336,20 +343,24 @@ ingress:
   - service: http_status:404
 "@ | Out-File "$cfDir\config.yml" -Encoding UTF8
 
+# Add DNS CNAME in Cloudflare
 Write-Info "Registering api.bakudanramen.com DNS route..."
 cloudflared tunnel route dns packing-api api.bakudanramen.com
 
+# Install as Windows service
 Write-Info "Installing cloudflared as Windows service..."
 cloudflared service install
 Write-Ok "Cloudflare Tunnel configured and installed as service"
 
-# ── Step 10: Start PM2 services ───────────────────────────────────────
+# ── Step 10: Start PM2 services ───────────────────────────────────────────────
 
 Write-Header "Step 10 of 10 — Starting Services"
 
-$apiDir = "$REPO_DIR\v2-react\server"
-$monDir = "$REPO_DIR\monitoring"
-$botDir = "$REPO_DIR\telegram"
+# Generate ecosystem with absolute paths for Windows service compatibility
+$apiDir     = "$REPO_DIR\v2-react\server"
+$monDir     = "$REPO_DIR\monitoring"
+$botDir     = "$REPO_DIR\telegram"
+$botEnabled = if ($TG_TOKEN -and (Test-Path "$botDir\index.js")) { "true" } else { "false" }
 
 $ecosystemContent = @"
 module.exports = {
@@ -403,11 +414,12 @@ pm2 start ecosystem.windows.js
 pm2 save
 Pop-Location
 
+# Install PM2 as Windows startup service
 Write-Info "Registering PM2 as Windows startup service..."
 pm2-service-install -n PM2 --unattended 2>&1 | Out-Null
 Write-Ok "PM2 configured to start on Windows boot"
 
-# ── Verify ──────────────────────────────────────────────────────
+# ── Verify ────────────────────────────────────────────────────────────────────
 
 Write-Host ""
 Write-Info "Waiting for API to start..."
@@ -426,7 +438,7 @@ try {
     Write-Warn "API not responding yet — check logs: pm2 logs packing-api"
 }
 
-# ── Done ─────────────────────────────────────────────────────────
+# ── Done ──────────────────────────────────────────────────────────────────────
 
 Write-Host ""
 Write-Header "Installation Complete"
