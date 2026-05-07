@@ -32,9 +32,9 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     setUsername(user);
-    setPassword('password');
+    setPassword('admin');
     try {
-      await login(user, 'password');
+      await login(user, 'admin');
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
