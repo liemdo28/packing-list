@@ -121,7 +121,7 @@ export default function OrderCreatePage() {
           <h2 className="text-base font-semibold text-gray-900 mb-4">Transfer Details</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <label className="label-field">From Store <span className="text-xs text-gray-400 font-normal">(nguồn hàng)</span></label>
+              <label className="label-field">From Store <span className="text-xs text-gray-400 font-normal">(supplier)</span></label>
               <select
                 value={fromStoreId}
                 onChange={(e) => { setFromStoreId(e.target.value); setLines([{ item_id: '', quantity: 1, notes: '' }]); }}
@@ -135,7 +135,7 @@ export default function OrderCreatePage() {
               </select>
             </div>
             <div>
-              <label className="label-field">To Store <span className="text-xs text-gray-400 font-normal">(giao đến)</span></label>
+              <label className="label-field">To Store <span className="text-xs text-gray-400 font-normal">(destination)</span></label>
               {toStoreLocked ? (
                 <div className="input-field mt-1 bg-gray-50 text-gray-700 cursor-not-allowed">
                   {toStore ? `${toStore.code} - ${toStore.name}` : 'Loading...'}

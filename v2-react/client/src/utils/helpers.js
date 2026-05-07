@@ -28,9 +28,9 @@ export function getAvailableDestinations(fromCode) {
 export function getAvailableSources(role) {
   switch (role) {
     case 'admin':      return ['B1', 'B3'];
-    case 'b1':         return ['B3'];          // B1 nhận hàng từ B3 (noodles)
-    case 'b2':         return ['B1', 'B3'];    // B2 nhận từ B1 và B3
-    case 'b3':         return ['B1'];          // B3 nhận hàng từ B1
+    case 'b1':         return ['B3'];          // B1 receives noodles from B3
+    case 'b2':         return ['B1', 'B3'];    // B2 receives from B1 and B3
+    case 'b3':         return ['B1'];          // B3 receives items from B1
     case 'accountant': return ['B1', 'B3'];
     default:           return [];
   }

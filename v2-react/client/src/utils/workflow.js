@@ -137,15 +137,19 @@ export function canPerformAction(userRole, orderStatus, action, order = null) {
   const toCode = order?.toStore?.code;
 
   const permissions = {
-    submit:  { statuses: ['draft'],              roles: ['admin', 'b1', 'b2', 'b3'] },
+    // submit/edit: only the requester (to_store) can act on their own draft
+    submit:  { statuses: ['draft'],              roles: ['admin', 'b1', 'b2', 'b3'], side: 'to' },
+    edit:    { statuses: ['draft'],              roles: ['admin', 'b1', 'b2', 'b3'], side: 'to' },
+    // supplier-side actions
     accept:  { statuses: ['supplier_reviewing'], roles: ['admin', 'b1', 'b3'], side: 'from' },
     reject:  { statuses: ['supplier_reviewing'], roles: ['admin', 'b1', 'b3'], side: 'from' },
     prepare: { statuses: ['supplier_accepted'],  roles: ['admin', 'b1', 'b3'], side: 'from' },
     ship:    { statuses: ['preparing'],          roles: ['admin', 'b1', 'b3'], side: 'from' },
+    // destination-side actions
     receive: { statuses: ['shipping'],           roles: ['admin', 'b1', 'b2', 'b3'], side: 'to' },
     complete:{ statuses: ['receiving_review', 'discrepancy_review'], roles: ['admin', 'b1', 'b2', 'b3', 'accountant'], side: 'to' },
-    cancel:  { statuses: ['draft', 'supplier_reviewing', 'supplier_accepted', 'preparing'], roles: ['admin', 'b1', 'b3'] },
-    edit:    { statuses: ['draft'],              roles: ['admin', 'b1', 'b2', 'b3'] },
+    // cancel: any involved store (from or to) can cancel at early stages
+    cancel:  { statuses: ['draft', 'supplier_reviewing', 'supplier_accepted', 'preparing'], roles: ['admin', 'b1', 'b2', 'b3'], side: 'either' },
   };
 
   const perm = permissions[action];
@@ -153,11 +157,10 @@ export function canPerformAction(userRole, orderStatus, action, order = null) {
   if (!perm.statuses.includes(orderStatus) || !perm.roles.includes(userRole)) return false;
   if (!order || userRole === 'admin' || userRole === 'accountant') return true;
 
-  if (perm.side === 'from' && ['b1', 'b2', 'b3'].includes(userRole)) {
-    return fromCode?.toLowerCase() === userRole;
-  }
-  if (perm.side === 'to' && ['b1', 'b2', 'b3'].includes(userRole)) {
-    return toCode?.toLowerCase() === userRole;
+  if (['b1', 'b2', 'b3'].includes(userRole)) {
+    if (perm.side === 'from')   return fromCode?.toLowerCase() === userRole;
+    if (perm.side === 'to')     return toCode?.toLowerCase() === userRole;
+    if (perm.side === 'either') return fromCode?.toLowerCase() === userRole || toCode?.toLowerCase() === userRole;
   }
 
   return true;
@@ -391,7 +394,7 @@ export function getOrderListGroups(orders, user) {
       label: 'Waiting on Other Store',
       helper: 'Transfers moving but needing another store to continue.',
       empty: 'No transfers are currently waiting on another store.',
-      filter: (order) => ['draft', 'shipping'].includes(order.status),
+      filter: (order) => order.status === 'shipping',
     },
     {
       key: 'discrepancy',

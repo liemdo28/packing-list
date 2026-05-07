@@ -39,7 +39,7 @@ export default function OrderListPage() {
       .finally(() => setLoading(false));
   }, [pagination.page, search, statusFilter]);
 
-  const canCreate = hasRole('admin', 'b1', 'b3');
+  const canCreate = hasRole('admin', 'b1', 'b2', 'b3');
   const filteredOrders = orders.filter(activeGroup.filter);
 
   const columns = [
@@ -156,10 +156,13 @@ export default function OrderListPage() {
           >
             <option value="">All statuses</option>
             <option value="draft">Draft</option>
-            <option value="submitted">Submitted</option>
+            <option value="supplier_reviewing">Pending Review</option>
+            <option value="supplier_accepted">Accepted</option>
+            <option value="supplier_rejected">Rejected</option>
             <option value="preparing">Preparing</option>
-            <option value="shipped">Shipped</option>
-            <option value="received">Received</option>
+            <option value="shipping">Shipping</option>
+            <option value="receiving_review">Receiving Review</option>
+            <option value="discrepancy_review">Discrepancy Review</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
