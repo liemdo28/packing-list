@@ -108,6 +108,14 @@ class OrderService {
 
       await t.commit();
 
+      // Fire notification after commit (non-blocking)
+      const User = require('../models').User;
+      const user = await User.findByPk(userId);
+      const actorUser = user ? { id: user.id, full_name: user.full_name } : { id: userId, full_name: 'System' };
+      
+      NotificationService.onOrderCreated(order, actorUser)
+        .catch((err) => console.error('Notification error:', err.message));
+
       return this._findOrderWithRelations(order.id);
     } catch (err) {
       await t.rollback();
