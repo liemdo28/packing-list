@@ -1,25 +1,52 @@
 #Requires -Version 5.1
 <#
-  Packing List System — Windows Installer
-  Run via setup.bat (double-click) or: powershell -ExecutionPolicy Bypass -File setup.ps1
+  Packing List System - Windows Installer
+  Run via setup.bat (double-click) or:
+    powershell -ExecutionPolicy Bypass -File setup.ps1
 #>
 
 $ErrorActionPreference = "Stop"
-$REPO_DIR = $PSScriptRoot
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+$REPO_DIR     = $PSScriptRoot
+$STATUS_DIR   = "C:\PackingList"
+$LOG_DIR      = "$STATUS_DIR\logs"
+$PC_NAME      = $env:COMPUTERNAME
+$INSTALL_TIME = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+$APP_VERSION  = "1.0.0"
+
+# Script-scope variables set during Step 1
+$script:DB_PASS    = ""
+$script:ADMIN_PASS = ""
+$script:STORE_PASS = ""
+$script:ACCT_PASS  = ""
+$script:TG_TOKEN   = ""
+$script:TG_CHAT_ID = ""
+$script:SHEET_URL  = ""
+$script:JWT_SECRET = ""
+
+# -- Helpers -------------------------------------------------------------------
 
 function Write-Header($msg) {
     Write-Host ""
-    Write-Host ("=" * 50) -ForegroundColor Cyan
+    Write-Host ("=" * 56) -ForegroundColor Cyan
     Write-Host "  $msg" -ForegroundColor Cyan
-    Write-Host ("=" * 50) -ForegroundColor Cyan
+    Write-Host ("=" * 56) -ForegroundColor Cyan
 }
-function Write-Step($msg)  { Write-Host "`n  >> $msg" -ForegroundColor Cyan }
-function Write-Ok($msg)    { Write-Host "     [OK] $msg" -ForegroundColor Green }
-function Write-Warn($msg)  { Write-Host "     [!!] $msg" -ForegroundColor Yellow }
-function Write-Info($msg)  { Write-Host "     $msg" -ForegroundColor Gray }
+function Write-Ok($msg)   { Write-Host "  [OK]   $msg" -ForegroundColor Green }
+function Write-Fail($msg) { Write-Host "  [FAIL] $msg" -ForegroundColor Red }
+function Write-Skip($msg) { Write-Host "  [SKIP] $msg" -ForegroundColor Gray }
+function Write-Warn($msg) { Write-Host "  [WARN] $msg" -ForegroundColor Yellow }
+function Write-Info($msg) { Write-Host "         $msg" -ForegroundColor Gray }
 
+function Prompt-Secret($label) {
+    do {
+        $secure = Read-Host "  $label" -AsSecureString
+        $plain  = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+                    [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+    } while (-not $plain)
+    return $plain
+}
+function Prompt-Optional($label) { return (Read-Host "  $label (Enter to skip)") }
 function Prompt-Value($label, $default = "") {
     if ($default) {
         $val = Read-Host "  $label [$default]"
@@ -30,26 +57,9 @@ function Prompt-Value($label, $default = "") {
     return $val
 }
 
-function Prompt-Secret($label) {
-    do {
-        $secure = Read-Host "  $label" -AsSecureString
-        $plain  = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-                    [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
-    } while (-not $plain)
-    return $plain
-}
-
-function Prompt-Optional($label) {
-    $val = Read-Host "  $label (Enter to skip)"
-    return $val
-}
-
 function Run-MySQL($sql, $rootPass = "") {
-    if ($rootPass) {
-        $sql | & mysql -u root -p"$rootPass" 2>&1
-    } else {
-        $sql | & mysql -u root 2>&1
-    }
+    if ($rootPass) { $sql | & mysql -u root -p"$rootPass" 2>&1 }
+    else           { $sql | & mysql -u root 2>&1 }
 }
 
 function Refresh-Path {
@@ -57,7 +67,420 @@ function Refresh-Path {
                 [System.Environment]::GetEnvironmentVariable("PATH","User")
 }
 
-# ── Admin elevation ────────────────────────────────────────────────────────────
+function Write-EnvFile($path, $lines) {
+    $lines | Set-Content -Path $path -Encoding UTF8
+}
+
+# -- Health checks -------------------------------------------------------------
+
+function Get-PM2Procs {
+    try {
+        $raw = & pm2 jlist 2>$null
+        if ($raw) { return ($raw | ConvertFrom-Json) }
+    } catch {}
+    return @()
+}
+
+function Invoke-AllChecks($DbPass, $TgToken, $TgChatId, $HasBot) {
+    $c = [ordered]@{}
+
+    # 1. Node.js
+    try {
+        $ver = (& node --version 2>$null)
+        $c['nodejs'] = @{ ok=$true; msg="$ver installed"; required=$true }
+    } catch {
+        $c['nodejs'] = @{ ok=$false; msg="not found"; required=$true }
+    }
+
+    # 2. Database service
+    $svc = Get-Service "MariaDB","MySQL" -ErrorAction SilentlyContinue |
+           Where-Object Status -eq "Running" | Select-Object -First 1
+    if ($svc) {
+        $c['db_service'] = @{ ok=$true; msg="$($svc.Name) running"; required=$true }
+    } else {
+        $c['db_service'] = @{ ok=$false; msg="MariaDB/MySQL not running"; required=$true }
+    }
+
+    # 3. Database exists (via packing_app user)
+    if ($DbPass) {
+        try {
+            $res = "SHOW DATABASES LIKE 'packing_list_prod';" | & mysql -u packing_app -p"$DbPass" 2>$null
+            $c['database'] = @{ ok=($res -match 'packing_list_prod'); msg="packing_list_prod exists"; required=$true }
+        } catch {
+            $c['database'] = @{ ok=$false; msg="cannot connect as packing_app"; required=$true }
+        }
+    } else {
+        $c['database'] = @{ ok=$null; skip=$true; msg="checked via API /health/db instead"; required=$false }
+    }
+
+    # 4. Backend .env
+    $envPath = Join-Path $REPO_DIR "v2-react\server\.env"
+    $c['env_file'] = @{ ok=(Test-Path $envPath); msg=if(Test-Path $envPath){".env present"}else{".env missing at $envPath"}; required=$true }
+
+    # 5-7. PM2 processes
+    $pm2 = Get-PM2Procs
+
+    $apiProc   = $pm2 | Where-Object { $_.name -eq 'packing-api' }
+    $apiOnline = $apiProc -and ($apiProc | Select-Object -ExpandProperty pm2_env).status -eq 'online'
+    $c['pm2_api'] = @{ ok=[bool]$apiOnline; msg=if($apiOnline){"online"}else{"not running - check: pm2 logs packing-api"}; required=$true }
+
+    $monProc   = $pm2 | Where-Object { $_.name -eq 'packing-monitor' }
+    $monOnline = $monProc -and ($monProc | Select-Object -ExpandProperty pm2_env).status -eq 'online'
+    $c['pm2_monitor'] = @{ ok=[bool]$monOnline; msg=if($monOnline){"online"}else{"not running"}; required=$true }
+
+    if ($HasBot) {
+        $botProc   = $pm2 | Where-Object { $_.name -eq 'packing-bot' }
+        $botOnline = $botProc -and ($botProc | Select-Object -ExpandProperty pm2_env).status -eq 'online'
+        $c['pm2_bot'] = @{ ok=[bool]$botOnline; msg=if($botOnline){"online"}else{"not running"}; required=$true }
+    } else {
+        $c['pm2_bot'] = @{ ok=$null; skip=$true; msg="not configured (no Telegram token)"; required=$false }
+    }
+
+    # 8. API /health
+    try {
+        $h = Invoke-RestMethod "http://localhost:3001/health" -TimeoutSec 8 -ErrorAction Stop
+        $c['api_health'] = @{ ok=($h.status -eq 'ok'); msg="status=$($h.status) uptime=$($h.uptime)s"; required=$true }
+    } catch {
+        $c['api_health'] = @{ ok=$false; msg="unreachable (port 3001)"; required=$true }
+    }
+
+    # 9. DB health via API
+    try {
+        $dh = Invoke-RestMethod "http://localhost:3001/health/db" -TimeoutSec 8 -ErrorAction Stop
+        $c['db_health'] = @{ ok=($dh.status -eq 'ok'); msg="status=$($dh.status) latency=$($dh.latencyMs)ms"; required=$true }
+    } catch {
+        $c['db_health'] = @{ ok=$false; msg="unreachable"; required=$true }
+    }
+
+    # 10. Port 3001 listening
+    $portLine = netstat -ano 2>$null | Select-String "0\.0\.0\.0:3001\s"
+    $c['port_3001'] = @{ ok=($null -ne $portLine); msg=if($portLine){"port 3001 listening"}else{"not listening"}; required=$true }
+
+    # 11. Cloudflare Tunnel service
+    $cfSvc = Get-Service "cloudflared" -ErrorAction SilentlyContinue
+    $cfOk  = $cfSvc -and $cfSvc.Status -eq 'Running'
+    $c['cloudflare'] = @{ ok=$cfOk; msg=if($cfOk){"cloudflared service running"}else{"not running as Windows service"}; required=$false }
+
+    # 12. Remote API reachable
+    try {
+        $r = Invoke-WebRequest "https://api.bakudanramen.com/health" -TimeoutSec 10 -UseBasicParsing -ErrorAction Stop
+        $c['remote_api'] = @{ ok=($r.StatusCode -eq 200); msg="reachable (HTTP $($r.StatusCode))"; required=$false }
+    } catch {
+        $c['remote_api'] = @{ ok=$false; msg="not reachable (DNS/tunnel may still be propagating)"; required=$false }
+    }
+
+    # 13. Telegram configured
+    if ($TgToken) {
+        $c['telegram'] = @{ ok=$true; msg="token configured"; required=$false }
+    } else {
+        $c['telegram'] = @{ ok=$null; skip=$true; msg="not configured"; required=$false }
+    }
+
+    return $c
+}
+
+# -- Report generators ---------------------------------------------------------
+
+function Build-CheckRows($checks) {
+    $labels = @{
+        'nodejs'      = 'Node.js'
+        'db_service'  = 'Database Service (MariaDB)'
+        'database'    = 'Database (packing_list_prod)'
+        'env_file'    = 'Backend .env File'
+        'pm2_api'     = 'API Process (PM2)'
+        'pm2_monitor' = 'Monitoring Process (PM2)'
+        'pm2_bot'     = 'Telegram Bot Process (PM2)'
+        'api_health'  = 'API /health'
+        'db_health'   = 'Database /health/db'
+        'port_3001'   = 'Port 3001'
+        'cloudflare'  = 'Cloudflare Tunnel'
+        'remote_api'  = 'Remote API Domain'
+        'telegram'    = 'Telegram Alert'
+    }
+    $sb = [System.Text.StringBuilder]::new()
+    foreach ($key in $checks.Keys) {
+        $ch    = $checks[$key]
+        $label = if ($labels[$key]) { $labels[$key] } else { $key }
+        if ($ch.skip -or $null -eq $ch.ok) {
+            $badge = "<span class='badge skip'>SKIP</span>"
+        } elseif ($ch.ok) {
+            $badge = "<span class='badge ok'>OK</span>"
+        } else {
+            $badge = "<span class='badge fail'>FAIL</span>"
+        }
+        [void]$sb.AppendLine("    <div class='check'>$badge<span class='cname'>$label</span><span class='cmsg'>$($ch.msg)</span></div>")
+    }
+    return $sb.ToString()
+}
+
+function Save-HtmlReport($checks, $allOk) {
+    $bannerClass = if ($allOk) { "success" } else { "failed" }
+    $bannerText  = if ($allOk) { "INSTALL SUCCESS" } else { "INSTALL FAILED" }
+    $checkRows   = Build-CheckRows $checks
+
+    $failedItems = $checks.Keys |
+        Where-Object { $checks[$_].required -and $checks[$_].ok -eq $false } |
+        ForEach-Object { $checks[$_].msg }
+
+    $failedHtml = ""
+    if (-not $allOk -and $failedItems) {
+        $liItems = ($failedItems | ForEach-Object { "      <li>$_</li>" }) -join "`n"
+        $failedHtml = "<div class='fail-box'><h2>What Failed</h2><ul>`n$liItems`n    </ul><p>Fix each item then run <b>check-status.bat</b>.</p></div>"
+    }
+
+    $nextClass = if ($allOk) { "next-ok" } else { "next-fail" }
+    $nextTitle = if ($allOk) { "Admin Next Steps" } else { "Recovery Steps" }
+    if ($allOk) {
+        $nextBody = @"
+    <ol>
+      <li>Open app: <a href="https://packinglist.bakudanramen.com">https://packinglist.bakudanramen.com</a></li>
+      <li>Login with admin account</li>
+      <li>Go to Pricing Admin and sync prices from Google Sheets</li>
+      <li>Run smoke test: open terminal, cd monitoring, node smoke_flow_full.js</li>
+      <li>Confirm Telegram alert received</li>
+      <li>Share store credentials only after all checks pass</li>
+    </ol>
+"@
+    } else {
+        $nextBody = @"
+    <ol>
+      <li>Fix the failed items listed above</li>
+      <li>Double-click <b>check-status.bat</b> to re-run all checks</li>
+      <li>For API issues: open terminal and run <code>pm2 logs packing-api</code></li>
+    </ol>
+"@
+    }
+
+    # Single-quoted here-string for static CSS (no variable substitution needed)
+    $css = @'
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f3f4f6;padding:24px}
+.card{max-width:740px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+.banner{padding:32px;text-align:center;color:#fff;font-size:30px;font-weight:bold;letter-spacing:2px}
+.banner.success{background:#16a34a}.banner.failed{background:#dc2626}
+.meta{padding:14px 24px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;color:#6b7280}
+.meta b{color:#374151}
+.section{padding:20px 24px;border-bottom:1px solid #e5e7eb}
+.section h2{font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:14px}
+.check{display:flex;align-items:center;padding:9px 0;border-bottom:1px solid #f3f4f6}
+.check:last-child{border-bottom:none}
+.badge{display:inline-block;width:52px;font-size:11px;font-weight:bold;padding:3px 6px;border-radius:4px;text-align:center;margin-right:14px;flex-shrink:0}
+.badge.ok{background:#dcfce7;color:#16a34a}.badge.fail{background:#fee2e2;color:#dc2626}.badge.skip{background:#f3f4f6;color:#9ca3af}
+.cname{font-size:14px;font-weight:500;min-width:220px;color:#374151}
+.cmsg{font-size:13px;color:#6b7280}
+.urls{padding:20px 24px;background:#eff6ff;border-bottom:1px solid #e5e7eb}
+.urls h2{font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;color:#1d4ed8;margin-bottom:12px}
+.url-row{padding:6px 0;font-size:14px}
+.url-row a{color:#1d4ed8;text-decoration:none}.url-row a:hover{text-decoration:underline}
+.url-label{font-weight:500;color:#374151;min-width:160px;display:inline-block}
+.fail-box{padding:20px 24px;background:#fef2f2;border-top:2px solid #dc2626}
+.fail-box h2{font-size:13px;font-weight:bold;text-transform:uppercase;color:#dc2626;margin-bottom:10px}
+.fail-box ul{padding-left:20px;margin-bottom:10px}.fail-box li{padding:3px 0;font-size:14px;color:#374151}
+.fail-box p{font-size:13px;color:#6b7280}
+.next-section{padding:20px 24px}
+.next-ok{background:#f0fdf4}.next-fail{background:#fef2f2}
+.next-section h2{font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+.next-ok h2{color:#16a34a}.next-fail h2{color:#dc2626}
+.next-section ol{padding-left:20px}.next-section li{padding:5px 0;font-size:14px;color:#374151}
+.next-section a{color:#1d4ed8}.next-section code{background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:13px}
+.footer{padding:12px 24px;background:#f9fafb;font-size:12px;color:#9ca3af;text-align:center}
+'@
+
+    $html = @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Packing List - Install Report</title>
+<style>$css</style>
+</head>
+<body>
+<div class="card">
+  <div class="banner $bannerClass">$bannerText</div>
+  <div class="meta">
+    <b>PC:</b> $PC_NAME &nbsp;&nbsp;
+    <b>Time:</b> $INSTALL_TIME &nbsp;&nbsp;
+    <b>Version:</b> $APP_VERSION
+  </div>
+  <div class="section">
+    <h2>System Checks</h2>
+$checkRows  </div>
+  <div class="urls">
+    <h2>System URLs</h2>
+    <div class="url-row"><span class="url-label">App</span><a href="https://packinglist.bakudanramen.com">https://packinglist.bakudanramen.com</a></div>
+    <div class="url-row"><span class="url-label">API Health</span><a href="http://localhost:3001/health">http://localhost:3001/health</a></div>
+    <div class="url-row"><span class="url-label">Full Health</span><a href="http://localhost:3001/health/full">http://localhost:3001/health/full</a></div>
+    <div class="url-row"><span class="url-label">Public API</span><a href="https://api.bakudanramen.com/health">https://api.bakudanramen.com/health</a></div>
+  </div>
+$failedHtml
+  <div class="next-section $nextClass">
+    <h2>$nextTitle</h2>
+$nextBody
+  </div>
+  <div class="footer">Generated by setup.ps1 on $PC_NAME at $INSTALL_TIME | Re-run anytime: check-status.bat</div>
+</div>
+</body>
+</html>
+"@
+    $html | Set-Content -Path "$STATUS_DIR\install-report.html" -Encoding UTF8
+}
+
+function Save-StatusJson($checks, $allOk) {
+    $checksObj = @{}
+    foreach ($key in $checks.Keys) {
+        $checksObj[$key] = @{ ok = $checks[$key].ok; msg = $checks[$key].msg }
+    }
+    [ordered]@{
+        installTime = $INSTALL_TIME
+        pcName      = $PC_NAME
+        version     = $APP_VERSION
+        success     = $allOk
+        repoDir     = $REPO_DIR
+        hasTelegram = [bool]$script:TG_TOKEN
+        hasBot      = ($script:TG_TOKEN -and (Test-Path (Join-Path $REPO_DIR "telegram\index.js")))
+        checks      = $checksObj
+    } | ConvertTo-Json -Depth 5 | Set-Content "$STATUS_DIR\install-status.json" -Encoding UTF8
+}
+
+function Save-Config {
+    [ordered]@{
+        repoDir     = $REPO_DIR
+        hasTelegram = [bool]$script:TG_TOKEN
+        hasBot      = ($script:TG_TOKEN -and (Test-Path (Join-Path $REPO_DIR "telegram\index.js")))
+        installTime = $INSTALL_TIME
+    } | ConvertTo-Json | Set-Content "$STATUS_DIR\config.json" -Encoding UTF8
+}
+
+function Create-Shortcuts {
+    try {
+        $desktop  = [System.Environment]::GetFolderPath("Desktop")
+        $reportUrl = "file:///$($STATUS_DIR.Replace('\','/'))/install-report.html"
+
+        @("[InternetShortcut]", "URL=https://packinglist.bakudanramen.com") |
+            Set-Content "$desktop\Packing List App.url" -Encoding ASCII
+
+        @("[InternetShortcut]", "URL=http://localhost:3001/health") |
+            Set-Content "$desktop\Packing List Health.url" -Encoding ASCII
+
+        @("[InternetShortcut]", "URL=$reportUrl") |
+            Set-Content "$desktop\Packing List Install Report.url" -Encoding ASCII
+
+        Write-Ok "Desktop shortcuts created (3)"
+    } catch {
+        Write-Warn "Could not create shortcuts: $_"
+    }
+}
+
+function Send-TelegramResult($allOk, $checks) {
+    if (-not $script:TG_TOKEN -or -not $script:TG_CHAT_ID) { return }
+    try {
+        if ($allOk) {
+            $msg = "[Packing List] Setup SUCCESS on $PC_NAME. All health checks passed. System is ready."
+        } else {
+            $failed = ($checks.Keys |
+                Where-Object { $checks[$_].required -and $checks[$_].ok -eq $false } |
+                ForEach-Object { $_ }) -join ", "
+            $msg = "[Packing List] Setup on $PC_NAME has FAILURES: $failed. Check install-report.html."
+        }
+        $body = @{ chat_id = $script:TG_CHAT_ID; text = $msg } | ConvertTo-Json
+        Invoke-RestMethod "https://api.telegram.org/bot$($script:TG_TOKEN)/sendMessage" `
+            -Method POST -Body $body -ContentType "application/json" -TimeoutSec 10 -ErrorAction Stop
+        Write-Ok "Telegram alert sent to admin"
+    } catch {
+        Write-Warn "Telegram alert failed (token/chat-id may be wrong): $_"
+    }
+}
+
+function Show-CheckResult($checks) {
+    $nameMap = @{
+        'nodejs'      = 'Node.js'
+        'db_service'  = 'Database Service'
+        'database'    = 'Database exists'
+        'env_file'    = 'Backend .env'
+        'pm2_api'     = 'packing-api (PM2)'
+        'pm2_monitor' = 'packing-monitor (PM2)'
+        'pm2_bot'     = 'packing-bot (PM2)'
+        'api_health'  = 'API /health'
+        'db_health'   = 'DB /health/db'
+        'port_3001'   = 'Port 3001'
+        'cloudflare'  = 'Cloudflare Tunnel'
+        'remote_api'  = 'Remote API Domain'
+        'telegram'    = 'Telegram'
+    }
+    foreach ($key in $checks.Keys) {
+        $ch   = $checks[$key]
+        $name = if ($nameMap[$key]) { $nameMap[$key] } else { $key }
+        if ($ch.skip -or $null -eq $ch.ok) {
+            Write-Skip ("{0,-28} {1}" -f $name, $ch.msg)
+        } elseif ($ch.ok) {
+            Write-Ok   ("{0,-28} {1}" -f $name, $ch.msg)
+        } else {
+            Write-Fail ("{0,-28} {1}" -f $name, $ch.msg)
+        }
+    }
+}
+
+function Show-FinalScreen($checks, $allOk) {
+    $failedNames = @($checks.Keys | Where-Object { $checks[$_].required -and $checks[$_].ok -eq $false })
+
+    Write-Host ""
+    Write-Host ""
+    if ($allOk) {
+        Write-Host ("=" * 56) -ForegroundColor Green
+        Write-Host ""
+        Write-Host "           INSTALL SUCCESS" -ForegroundColor Green
+        Write-Host "    System is installed and ready to use." -ForegroundColor Green
+        Write-Host ""
+        Write-Host ("=" * 56) -ForegroundColor Green
+    } else {
+        Write-Host ("=" * 56) -ForegroundColor Red
+        Write-Host ""
+        Write-Host "           INSTALL FAILED" -ForegroundColor Red
+        Write-Host "    System is NOT ready. Fix the items below." -ForegroundColor Red
+        Write-Host ""
+        Write-Host ("=" * 56) -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  FAILED:" -ForegroundColor Red
+        foreach ($name in $failedNames) {
+            Write-Host "    - $name : $($checks[$name].msg)" -ForegroundColor Red
+        }
+    }
+
+    Write-Host ""
+    Write-Host "  System URL :" -ForegroundColor White
+    Write-Host "    https://packinglist.bakudanramen.com" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Backend Health :" -ForegroundColor White
+    Write-Host "    http://localhost:3001/health" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Install Report :" -ForegroundColor White
+    Write-Host "    $STATUS_DIR\install-report.html" -ForegroundColor Cyan
+    Write-Host "    (also opening in browser...)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Admin next steps:" -ForegroundColor White
+    Write-Host "    1. Open app at https://packinglist.bakudanramen.com" -ForegroundColor Gray
+    Write-Host "    2. Login with admin account" -ForegroundColor Gray
+    Write-Host "    3. Run smoke test: cd monitoring && node smoke_flow_full.js" -ForegroundColor Gray
+    Write-Host "    4. Confirm Telegram alert received" -ForegroundColor Gray
+    Write-Host "    5. Share store credentials ONLY after all checks pass" -ForegroundColor Gray
+    Write-Host ""
+    if (-not $allOk) {
+        Write-Host "  To re-check after fixing: double-click check-status.bat" -ForegroundColor Yellow
+    }
+    Write-Host ""
+}
+
+# ==============================================================================
+#  MAIN INSTALL SEQUENCE
+# ==============================================================================
+
+# -- Logging -------------------------------------------------------------------
+
+New-Item -ItemType Directory -Force -Path $LOG_DIR | Out-Null
+Start-Transcript -Path "$LOG_DIR\setup.log" -Force | Out-Null
+
+# -- Admin elevation -----------------------------------------------------------
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
            ).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")
@@ -65,10 +488,11 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $isAdmin) {
     Write-Host "  Requesting Administrator privileges..." -ForegroundColor Yellow
     Start-Process powershell "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    Stop-Transcript | Out-Null
     Exit
 }
 
-# ── Banner ─────────────────────────────────────────────────────────────────────
+# -- Banner --------------------------------------------------------------------
 
 Clear-Host
 Write-Header "Packing List System - Windows Installer"
@@ -77,53 +501,50 @@ Write-Host "  This script will install and configure:" -ForegroundColor White
 Write-Host "    - Node.js 20 LTS" -ForegroundColor Gray
 Write-Host "    - MariaDB (MySQL-compatible database)" -ForegroundColor Gray
 Write-Host "    - PM2 process manager (auto-start on reboot)" -ForegroundColor Gray
-Write-Host "    - Cloudflare Tunnel (secure internet access, no port forwarding)" -ForegroundColor Gray
-Write-Host "    - Packing List API + Monitoring + Telegram Bot" -ForegroundColor Gray
+Write-Host "    - Cloudflare Tunnel (no port forwarding needed)" -ForegroundColor Gray
+Write-Host "    - API + Monitoring + Telegram Bot" -ForegroundColor Gray
 Write-Host ""
-Write-Host "  You will be asked a few questions, then the install runs automatically." -ForegroundColor Yellow
-Write-Host "  One step requires a browser login to Cloudflare." -ForegroundColor Yellow
+Write-Host "  Status report will be saved to: $STATUS_DIR" -ForegroundColor Yellow
+Write-Host "  Log file: $LOG_DIR\setup.log" -ForegroundColor Gray
 Write-Host ""
 Read-Host "  Press Enter to begin"
 
-# ── Step 1: Collect all inputs upfront ────────────────────────────────────────
+# -- Step 1: Collect inputs ----------------------------------------------------
 
-Write-Header "Step 1 of 10 — Configuration"
+Write-Header "Step 1 of 11 - Configuration"
 Write-Host ""
-Write-Host "  Set passwords for the database and app users." -ForegroundColor White
-Write-Host "  These are created now — write them down somewhere safe." -ForegroundColor Yellow
+Write-Host "  Set passwords - write these down somewhere safe." -ForegroundColor Yellow
 Write-Host ""
 
-$DB_PASS    = Prompt-Secret "Database password (for packing_app user)"
-$ADMIN_PASS = Prompt-Secret "App admin password (login as 'admin')"
-$STORE_PASS = Prompt-Secret "Store password (user_b1, user_b2, user_b3)"
-$ACCT_PASS  = Prompt-Secret "Accountant password (login as 'accountant')"
+$script:DB_PASS    = Prompt-Secret "Database password (for packing_app user)"
+$script:ADMIN_PASS = Prompt-Secret "App admin password (login as 'admin')"
+$script:STORE_PASS = Prompt-Secret "Store password (user_b1, user_b2, user_b3)"
+$script:ACCT_PASS  = Prompt-Secret "Accountant password (login as 'accountant')"
 
 Write-Host ""
-Write-Host "  Telegram alerts (optional — press Enter to skip):" -ForegroundColor White
-$TG_TOKEN   = Prompt-Optional "Telegram Bot Token (from @BotFather)"
-$TG_CHAT_ID = ""
-if ($TG_TOKEN) {
-    $TG_CHAT_ID = Prompt-Optional "Telegram Admin Chat ID"
+Write-Host "  Telegram alerts (optional):" -ForegroundColor White
+$script:TG_TOKEN   = Prompt-Optional "Telegram Bot Token (from @BotFather)"
+$script:TG_CHAT_ID = ""
+if ($script:TG_TOKEN) {
+    $script:TG_CHAT_ID = Prompt-Optional "Telegram Admin Chat ID"
 }
 
 Write-Host ""
-Write-Host "  Google Sheets pricing (optional — press Enter to skip):" -ForegroundColor White
-$SHEET_URL = Prompt-Optional "Google Sheet CSV export URL"
+Write-Host "  Google Sheets pricing (optional):" -ForegroundColor White
+$script:SHEET_URL = Prompt-Optional "Google Sheet CSV export URL"
 
 Write-Host ""
-Write-Host "  Generating JWT secret..." -ForegroundColor Gray
-
-# Generate 64-byte random hex JWT secret using PowerShell crypto
+Write-Info "Generating JWT secret..."
 $rng   = [System.Security.Cryptography.RNGCryptoServiceProvider]::Create()
 $bytes = New-Object byte[] 64
 $rng.GetBytes($bytes)
-$JWT_SECRET = -join ($bytes | ForEach-Object { $_.ToString("x2") })
+$script:JWT_SECRET = -join ($bytes | ForEach-Object { $_.ToString("x2") })
 
 Write-Ok "Configuration collected. Starting automated install..."
 
-# ── Step 2: Chocolatey ────────────────────────────────────────────────────────
+# -- Step 2: Chocolatey --------------------------------------------------------
 
-Write-Header "Step 2 of 10 — Package Manager (Chocolatey)"
+Write-Header "Step 2 of 11 - Package Manager (Chocolatey)"
 
 if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
     Write-Info "Installing Chocolatey..."
@@ -136,14 +557,12 @@ if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
     Write-Ok "Chocolatey already installed"
 }
 
-# ── Step 3: Install packages ──────────────────────────────────────────────────
+# -- Step 3: Install packages --------------------------------------------------
 
-Write-Header "Step 3 of 10 — Installing Dependencies"
+Write-Header "Step 3 of 11 - Installing Dependencies"
 Write-Info "This may take 5-10 minutes..."
 
-# Install each package; skip if already installed
-$packages = @("nodejs-lts", "git", "mariadb", "cloudflared")
-foreach ($pkg in $packages) {
+foreach ($pkg in @("nodejs-lts", "git", "mariadb", "cloudflared")) {
     Write-Info "Installing $pkg..."
     choco install $pkg -y --no-progress 2>&1 | Out-Null
 }
@@ -151,51 +570,44 @@ foreach ($pkg in $packages) {
 Refresh-Path
 Write-Ok "Node.js, Git, MariaDB, cloudflared installed"
 
-# ── Step 4: PM2 ───────────────────────────────────────────────────────────────
+# -- Step 4: PM2 ---------------------------------------------------------------
 
-Write-Header "Step 4 of 10 — PM2 Process Manager"
-
+Write-Header "Step 4 of 11 - PM2 Process Manager"
 npm install -g pm2 pm2-windows-service --silent 2>&1 | Out-Null
 Refresh-Path
 Write-Ok "PM2 installed"
 
-# ── Step 5: Database setup ────────────────────────────────────────────────────
+# -- Step 5: Database ----------------------------------------------------------
 
-Write-Header "Step 5 of 10 — Database Setup"
+Write-Header "Step 5 of 11 - Database Setup"
 
-# Start MariaDB service
 $svcName = if (Get-Service "MariaDB" -ErrorAction SilentlyContinue) { "MariaDB" } else { "MySQL" }
 Start-Service $svcName -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 3
 
-$dbSetupSql = @"
+$dbSql = @"
 CREATE DATABASE IF NOT EXISTS packing_list_prod
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'packing_app'@'localhost' IDENTIFIED BY '$DB_PASS';
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'packing_app'@'localhost' IDENTIFIED BY '$($script:DB_PASS)';
 GRANT ALL PRIVILEGES ON packing_list_prod.* TO 'packing_app'@'localhost';
 FLUSH PRIVILEGES;
 "@
 
 try {
-    Run-MySQL $dbSetupSql
-    Write-Ok "Database 'packing_list_prod' and user 'packing_app' created"
+    Run-MySQL $dbSql
+    Write-Ok "Database packing_list_prod and user packing_app created"
 } catch {
-    Write-Warn "Could not connect to MariaDB with empty root password."
-    Write-Warn "If you set a root password during install, enter it now:"
+    Write-Warn "Retrying with root password prompt..."
     $ROOT_PASS = Prompt-Secret "MariaDB root password"
-    Run-MySQL $dbSetupSql $ROOT_PASS
+    Run-MySQL $dbSql $ROOT_PASS
     Write-Ok "Database setup complete"
 }
 
-# ── Step 6: Create .env files ─────────────────────────────────────────────────
+# -- Step 6: .env files --------------------------------------------------------
 
-Write-Header "Step 6 of 10 — Configuration Files"
+Write-Header "Step 6 of 11 - Configuration Files"
 
-# Use Set-Content with array of lines — avoids here-string backslash edge cases
-function Write-EnvFile($path, $lines) {
-    $lines | Set-Content -Path $path -Encoding UTF8
-}
+New-Item -ItemType Directory -Force -Path $STATUS_DIR | Out-Null
 
 Write-EnvFile (Join-Path $REPO_DIR "v2-react\server\.env") @(
     "NODE_ENV=production"
@@ -207,12 +619,12 @@ Write-EnvFile (Join-Path $REPO_DIR "v2-react\server\.env") @(
     "DB_PORT=3306"
     "DB_NAME=packing_list_prod"
     "DB_USER=packing_app"
-    "DB_PASS=$DB_PASS"
+    "DB_PASS=$($script:DB_PASS)"
     ""
-    "JWT_SECRET=$JWT_SECRET"
+    "JWT_SECRET=$($script:JWT_SECRET)"
     "JWT_EXPIRES_IN=7d"
     ""
-    "GOOGLE_SHEET_CSV_URL=$SHEET_URL"
+    "GOOGLE_SHEET_CSV_URL=$($script:SHEET_URL)"
     "PRICING_SYNC_INTERVAL_MS=3600000"
 )
 
@@ -226,101 +638,93 @@ Write-EnvFile (Join-Path $REPO_DIR "monitoring\.env") @(
     "DB_PORT=3306"
     "DB_NAME=packing_list_prod"
     "DB_USER=packing_app"
-    "DB_PASS=$DB_PASS"
+    "DB_PASS=$($script:DB_PASS)"
     ""
-    "TELEGRAM_BOT_TOKEN=$TG_TOKEN"
-    "TELEGRAM_ADMIN_CHAT_ID=$TG_CHAT_ID"
+    "TELEGRAM_BOT_TOKEN=$($script:TG_TOKEN)"
+    "TELEGRAM_ADMIN_CHAT_ID=$($script:TG_CHAT_ID)"
     ""
     "SMOKE_ADMIN_USERNAME=admin"
-    "SMOKE_ADMIN_PASSWORD=$ADMIN_PASS"
+    "SMOKE_ADMIN_PASSWORD=$($script:ADMIN_PASS)"
     "SMOKE_B1_USERNAME=user_b1"
-    "SMOKE_B1_PASSWORD=$STORE_PASS"
+    "SMOKE_B1_PASSWORD=$($script:STORE_PASS)"
     "SMOKE_B2_USERNAME=user_b2"
-    "SMOKE_B2_PASSWORD=$STORE_PASS"
+    "SMOKE_B2_PASSWORD=$($script:STORE_PASS)"
     ""
     "DISK_CHECK_PATH=C:/"
     "DISK_WARN_PERCENT=80"
     "DISK_CRIT_PERCENT=90"
 )
 
-if ($TG_TOKEN) {
+if ($script:TG_TOKEN) {
     Write-EnvFile (Join-Path $REPO_DIR "telegram\.env") @(
-        "TELEGRAM_BOT_TOKEN=$TG_TOKEN"
+        "TELEGRAM_BOT_TOKEN=$($script:TG_TOKEN)"
         "API_BASE_URL=https://api.bakudanramen.com/api"
     )
 }
 
 Write-Ok ".env files created"
 
-# ── Step 7: npm install ───────────────────────────────────────────────────────
+# -- Step 7: npm install -------------------------------------------------------
 
-Write-Header "Step 7 of 10 — Installing npm Dependencies"
+Write-Header "Step 7 of 11 - Installing npm Dependencies"
 
 Push-Location "$REPO_DIR\v2-react\server"
-Write-Info "Installing API dependencies..."
+Write-Info "API dependencies..."
 npm install --production --silent 2>&1 | Out-Null
 Pop-Location
 
 Push-Location "$REPO_DIR\monitoring"
-Write-Info "Installing monitoring dependencies..."
+Write-Info "Monitoring dependencies..."
 npm install --silent 2>&1 | Out-Null
 Pop-Location
 
-if ($TG_TOKEN -and (Test-Path "$REPO_DIR\telegram\package.json")) {
+if ($script:TG_TOKEN -and (Test-Path "$REPO_DIR\telegram\package.json")) {
     Push-Location "$REPO_DIR\telegram"
-    Write-Info "Installing Telegram bot dependencies..."
+    Write-Info "Telegram bot dependencies..."
     npm install --silent 2>&1 | Out-Null
     Pop-Location
 }
-
 Write-Ok "npm dependencies installed"
 
-# ── Step 8: Seed database ─────────────────────────────────────────────────────
+# -- Step 8: Seed database -----------------------------------------------------
 
-Write-Header "Step 8 of 10 — Seeding Database"
+Write-Header "Step 8 of 11 - Seeding Database"
 
-$env:SEED_ADMIN_PASS = $ADMIN_PASS
-$env:SEED_STORE_PASS = $STORE_PASS
-$env:SEED_ACCT_PASS  = $ACCT_PASS
+$env:SEED_ADMIN_PASS = $script:ADMIN_PASS
+$env:SEED_STORE_PASS = $script:STORE_PASS
+$env:SEED_ACCT_PASS  = $script:ACCT_PASS
 
 Push-Location "$REPO_DIR\v2-react\server"
 node src/seeders/seed-prod.js
 Pop-Location
-
 Write-Ok "Stores and users created"
 
-# ── Step 9: Cloudflare Tunnel ─────────────────────────────────────────────────
+# -- Step 9: Cloudflare Tunnel -------------------------------------------------
 
-Write-Header "Step 9 of 10 — Cloudflare Tunnel"
+Write-Header "Step 9 of 11 - Cloudflare Tunnel"
 Write-Host ""
-Write-Host "  This step exposes your API to the internet via Cloudflare Tunnel." -ForegroundColor White
-Write-Host "  No port forwarding or public IP needed." -ForegroundColor Gray
-Write-Host ""
-Write-Host "  A browser will open — log in with your Cloudflare account" -ForegroundColor Yellow
-Write-Host "  and select the 'bakudanramen.com' zone." -ForegroundColor Yellow
+Write-Host "  A browser will open - log in with your Cloudflare account" -ForegroundColor Yellow
+Write-Host "  and select the bakudanramen.com zone." -ForegroundColor Yellow
 Write-Host ""
 Read-Host "  Press Enter to open the browser"
 
 cloudflared tunnel login
 
-Write-Host ""
 Write-Info "Creating tunnel 'packing-api'..."
 $tunnelOutput = cloudflared tunnel create packing-api 2>&1 | Out-String
 $uuidMatch    = [regex]::Match($tunnelOutput, "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 if ($uuidMatch.Success) {
     $TUNNEL_UUID = $uuidMatch.Value
-    Write-Ok "Tunnel created: $TUNNEL_UUID"
+    Write-Ok "Tunnel UUID: $TUNNEL_UUID"
 } else {
-    Write-Warn "Could not auto-detect UUID from output:"
+    Write-Warn "Could not auto-detect UUID. Output was:"
     Write-Host $tunnelOutput -ForegroundColor Gray
     $TUNNEL_UUID = Prompt-Value "Enter the tunnel UUID shown above"
 }
 
-# Write cloudflared config
 $cfDir      = Join-Path $env:USERPROFILE ".cloudflared"
 $cfCredFile = Join-Path $cfDir "$TUNNEL_UUID.json"
-$cfConfig   = Join-Path $cfDir "config.yml"
 New-Item -ItemType Directory -Force -Path $cfDir | Out-Null
 
 @(
@@ -331,80 +735,51 @@ New-Item -ItemType Directory -Force -Path $cfDir | Out-Null
     "  - hostname: api.bakudanramen.com"
     "    path: /health"
     "    service: http://localhost:3001"
-    ""
     "  - hostname: api.bakudanramen.com"
     "    path: /health/db"
     "    service: http://localhost:3001"
-    ""
     "  - hostname: api.bakudanramen.com"
     "    path: /health/full"
     "    service: http://localhost:3001"
-    ""
     "  - hostname: api.bakudanramen.com"
     "    path: /api"
     "    service: http://localhost:3001"
-    ""
     "  - service: http_status:404"
-) | Set-Content -Path $cfConfig -Encoding UTF8
+) | Set-Content -Path (Join-Path $cfDir "config.yml") -Encoding UTF8
 
-# Add DNS CNAME in Cloudflare
-Write-Info "Registering api.bakudanramen.com DNS route..."
+Write-Info "Registering DNS CNAME..."
 cloudflared tunnel route dns packing-api api.bakudanramen.com
-
-# Install as Windows service
-Write-Info "Installing cloudflared as Windows service..."
 cloudflared service install
-Write-Ok "Cloudflare Tunnel configured and installed as service"
+Write-Ok "Cloudflare Tunnel configured"
 
-# ── Step 10: Start PM2 services ───────────────────────────────────────────────
+# -- Step 10: Start PM2 --------------------------------------------------------
 
-Write-Header "Step 10 of 10 — Starting Services"
+Write-Header "Step 10 of 11 - Starting Services"
 
-# Generate ecosystem with absolute paths for Windows service compatibility
 $apiDir = Join-Path $REPO_DIR "v2-react\server"
 $monDir = Join-Path $REPO_DIR "monitoring"
 $botDir = Join-Path $REPO_DIR "telegram"
+$apiJs  = $apiDir.Replace('\', '\\')
+$monJs  = $monDir.Replace('\', '\\')
+$botJs  = $botDir.Replace('\', '\\')
 
-# Pre-escape backslashes for JavaScript string literals
-$apiJs = $apiDir.Replace('\', '\\')
-$monJs = $monDir.Replace('\', '\\')
-$botJs = $botDir.Replace('\', '\\')
-
-# Build ecosystem JS as an array of lines — no nested quoting needed
 $jsLines = [System.Collections.Generic.List[string]]::new()
 $jsLines.Add("module.exports = {")
 $jsLines.Add("  apps: [")
-$jsLines.Add("    {")
-$jsLines.Add("      name: 'packing-api',")
-$jsLines.Add("      cwd:  '$apiJs',")
-$jsLines.Add("      script: 'src/index.js',")
-$jsLines.Add("      instances: 1, autorestart: true, watch: false,")
-$jsLines.Add("      max_memory_restart: '512M',")
-$jsLines.Add("      env: { NODE_ENV: 'production', PORT: '3001' },")
-$jsLines.Add("    },")
-$jsLines.Add("    {")
-$jsLines.Add("      name: 'packing-monitor',")
-$jsLines.Add("      cwd:  '$monJs',")
-$jsLines.Add("      script: 'index.js',")
-$jsLines.Add("      instances: 1, autorestart: true, watch: false,")
-$jsLines.Add("      max_memory_restart: '256M',")
-$jsLines.Add("      env: { NODE_ENV: 'production' },")
-$jsLines.Add("    },")
+$jsLines.Add("    { name: 'packing-api', cwd: '$apiJs', script: 'src/index.js',")
+$jsLines.Add("      instances: 1, autorestart: true, watch: false, max_memory_restart: '512M',")
+$jsLines.Add("      env: { NODE_ENV: 'production', PORT: '3001' } },")
+$jsLines.Add("    { name: 'packing-monitor', cwd: '$monJs', script: 'index.js',")
+$jsLines.Add("      instances: 1, autorestart: true, watch: false, max_memory_restart: '256M',")
+$jsLines.Add("      env: { NODE_ENV: 'production' } },")
 
-if ($TG_TOKEN -and (Test-Path (Join-Path $botDir "index.js"))) {
-    $jsLines.Add("    {")
-    $jsLines.Add("      name: 'packing-bot',")
-    $jsLines.Add("      cwd:  '$botJs',")
-    $jsLines.Add("      script: 'index.js',")
-    $jsLines.Add("      instances: 1, autorestart: true, watch: false,")
-    $jsLines.Add("      max_memory_restart: '256M',")
-    $jsLines.Add("      env: { NODE_ENV: 'production' },")
-    $jsLines.Add("    },")
+if ($script:TG_TOKEN -and (Test-Path (Join-Path $botDir "index.js"))) {
+    $jsLines.Add("    { name: 'packing-bot', cwd: '$botJs', script: 'index.js',")
+    $jsLines.Add("      instances: 1, autorestart: true, watch: false, max_memory_restart: '256M',")
+    $jsLines.Add("      env: { NODE_ENV: 'production' } },")
 }
-
 $jsLines.Add("  ],")
-$jsLines.Add("};")
-
+$jsLines.Add("}; ")
 $jsLines | Set-Content -Path (Join-Path $REPO_DIR "ecosystem.windows.js") -Encoding UTF8
 
 Push-Location $REPO_DIR
@@ -412,57 +787,38 @@ pm2 start ecosystem.windows.js
 pm2 save
 Pop-Location
 
-# Install PM2 as Windows startup service
 Write-Info "Registering PM2 as Windows startup service..."
 pm2-service-install -n PM2 --unattended 2>&1 | Out-Null
-Write-Ok "PM2 configured to start on Windows boot"
+Write-Ok "PM2 services running and registered for auto-start"
 
-# ── Verify ────────────────────────────────────────────────────────────────────
+# -- Step 11: Verification & Report -------------------------------------------
 
+Write-Header "Step 11 of 11 - Verification and Install Report"
+Write-Info "Running all health checks..."
 Write-Host ""
-Write-Info "Waiting for API to start..."
-Start-Sleep -Seconds 6
 
-$apiOk = $false
-try {
-    $health = Invoke-RestMethod -Uri "http://localhost:3001/health" -TimeoutSec 10
-    if ($health.status -eq "ok") {
-        $apiOk = $true
-        Write-Ok "API health check: OK (DB: $($health.db.status))"
-    } else {
-        Write-Warn "API responded but status: $($health.status)"
-    }
-} catch {
-    Write-Warn "API not responding yet — check logs: pm2 logs packing-api"
-}
+Start-Sleep -Seconds 8
 
-# ── Done ──────────────────────────────────────────────────────────────────────
+$hasBot = $script:TG_TOKEN -and (Test-Path (Join-Path $REPO_DIR "telegram\index.js"))
+$checks = Invoke-AllChecks -DbPass $script:DB_PASS -TgToken $script:TG_TOKEN `
+                           -TgChatId $script:TG_CHAT_ID -HasBot $hasBot
 
-Write-Host ""
-Write-Header "Installation Complete"
-Write-Host ""
-if ($apiOk) {
-    Write-Host "  Everything is running!" -ForegroundColor Green
-} else {
-    Write-Host "  Install finished. Check pm2 logs if API isn't responding yet." -ForegroundColor Yellow
-}
-Write-Host ""
-Write-Host "  Local API:  http://localhost:3001/health" -ForegroundColor White
-Write-Host "  Public API: https://api.bakudanramen.com/health" -ForegroundColor White
-Write-Host "  Frontend:   https://packinglist.bakudanramen.com" -ForegroundColor White
-Write-Host ""
-Write-Host "  Users created:" -ForegroundColor White
-Write-Host "    admin / $ADMIN_PASS" -ForegroundColor Gray
-Write-Host "    user_b1, user_b2, user_b3 / $STORE_PASS" -ForegroundColor Gray
-Write-Host "    accountant / $ACCT_PASS" -ForegroundColor Gray
-Write-Host ""
-Write-Host "  Useful commands (open a new terminal):" -ForegroundColor White
-Write-Host "    pm2 list                     - show all services" -ForegroundColor Gray
-Write-Host "    pm2 logs packing-api         - API logs" -ForegroundColor Gray
-Write-Host "    pm2 restart packing-api      - restart API" -ForegroundColor Gray
-Write-Host ""
-Write-Host "  Smoke test:" -ForegroundColor White
-Write-Host "    cd $REPO_DIR\monitoring" -ForegroundColor Gray
-Write-Host "    node smoke_flow_full.js" -ForegroundColor Gray
-Write-Host ""
-Read-Host "  Press Enter to close"
+Show-CheckResult $checks
+
+$allOk = -not ($checks.Values | Where-Object { $_.required -eq $true -and $_.ok -eq $false })
+
+# Save files
+Save-StatusJson $checks $allOk
+Save-HtmlReport $checks $allOk
+Save-Config
+Create-Shortcuts
+Send-TelegramResult $allOk $checks
+
+# Open HTML report in default browser
+Start-Process "$STATUS_DIR\install-report.html"
+
+Show-FinalScreen $checks $allOk
+
+Stop-Transcript | Out-Null
+
+if ($allOk) { exit 0 } else { exit 1 }
