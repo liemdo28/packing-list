@@ -789,10 +789,10 @@ if ($script:TG_TOKEN -and (Test-Path (Join-Path $botDir "index.js"))) {
 }
 $jsLines.Add("  ],")
 $jsLines.Add("}; ")
-$jsLines | Set-Content -Path (Join-Path $REPO_DIR "ecosystem.windows.js") -Encoding UTF8
+$jsLines | Set-Content -Path (Join-Path $REPO_DIR "ecosystem.config.js") -Encoding UTF8
 
 Push-Location $REPO_DIR
-try { $null = & pm2 start ecosystem.windows.js --force 2>&1 } catch { }
+try { $null = & pm2 start ecosystem.config.js --force 2>&1 } catch { }
 try { $null = & pm2 save 2>&1 } catch { }
 Pop-Location
 
