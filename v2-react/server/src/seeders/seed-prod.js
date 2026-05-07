@@ -23,14 +23,16 @@ require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { sequelize, Store, User } = require('../models');
 
-const ADMIN_PASS = process.env.SEED_ADMIN_PASS;
-const STORE_PASS = process.env.SEED_STORE_PASS;
-const ACCT_PASS  = process.env.SEED_ACCT_PASS || STORE_PASS;
+const ADMIN_PASS  = process.env.SEED_ADMIN_PASS;
+const STORE_PASS  = process.env.SEED_STORE_PASS;
+const ACCT_PASS   = process.env.SEED_ACCT_PASS || STORE_PASS;
+const FORCE_RESET = process.env.SEED_FORCE === '1';
 
 if (!ADMIN_PASS || !STORE_PASS) {
   console.error('ERROR: SEED_ADMIN_PASS and SEED_STORE_PASS must be set in environment.');
   console.error('Example:');
   console.error('  SEED_ADMIN_PASS="..." SEED_STORE_PASS="..." node src/seeders/seed-prod.js');
+  console.error('  Add SEED_FORCE=1 to force-reset passwords for existing users.');
   process.exit(1);
 }
 
@@ -118,12 +120,21 @@ async function seedProd() {
   ];
 
   for (const def of userDefs) {
-    const [, wasCreated] = await User.findOrCreate({
+    const [user, wasCreated] = await User.findOrCreate({
       where: { username: def.username },
       defaults: def,
     });
-    if (wasCreated) { created++; console.log(`  [+] User  ${def.username} (${def.role})`); }
-    else             { skipped++; console.log(`  [=] User  ${def.username} (exists — password NOT changed)`); }
+    if (wasCreated) {
+      created++;
+      console.log(`  [+] User  ${def.username} (${def.role})`);
+    } else if (FORCE_RESET) {
+      await user.update({ password: def.password });
+      created++;
+      console.log(`  [~] User  ${def.username} (exists — password RESET)`);
+    } else {
+      skipped++;
+      console.log(`  [=] User  ${def.username} (exists — password NOT changed)`);
+    }
   }
 
   console.log(`\nDone. Created: ${created}, Skipped: ${skipped}`);
