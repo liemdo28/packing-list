@@ -167,8 +167,8 @@ export default function OrderCreatePage() {
             {lines.map((line, idx) => (
               <div key={idx} className="flex gap-3 items-start p-3 rounded-lg bg-gray-50">
                 <div className="flex-1">
-                  <select value={line.item_id} onChange={(e) => updateLine(idx, 'item_id', e.target.value)} className="input-field text-sm" required>
-                    <option value="">Select item</option>
+                  <select value={line.item_id} onChange={(e) => updateLine(idx, 'item_id', e.target.value)} className="input-field text-sm" required disabled={!fromStoreId}>
+                    <option value="">{!fromStoreId ? 'Select a source store first' : filteredItems.length === 0 ? 'No items available for this route' : 'Select item'}</option>
                     {filteredItems.map(item => (
                       <option key={item.id} value={item.id}>{item.code} - {item.name} ({item.unit})</option>
                     ))}
