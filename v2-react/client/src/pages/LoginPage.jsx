@@ -29,12 +29,13 @@ export default function LoginPage() {
   };
 
   const handleQuickLogin = async (user) => {
+    const pw = user === 'admin' ? 'admin' : 'password';
     setError('');
     setLoading(true);
     setUsername(user);
-    setPassword('admin');
+    setPassword(pw);
     try {
-      await login(user, 'admin');
+      await login(user, pw);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
