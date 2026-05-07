@@ -5,7 +5,7 @@
  * health check endpoint that proxies to the API server via tunnel.
  */
 
-const TUNNEL_BASE = 'https://api.bakudanramen.com';
+const TUNNEL_BASE = 'https://5c313804-9d8d-42ef-9fa9-90c4d814718f.cfargotunnel.com';
 
 export async function onRequest() {
   try {
