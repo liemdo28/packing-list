@@ -216,11 +216,12 @@ class OrderService {
 
       await order.update(updateData, { transaction: t });
 
+      await t.commit();
+
       // Fire notification after commit (non-blocking)
       NotificationService.notifyOrderStatusChange(order, newStatus, userId)
         .catch((err) => console.error('Notification error:', err.message));
 
-      await t.commit();
       return this._findOrderWithRelations(orderId);
     } catch (err) {
       await t.rollback();
