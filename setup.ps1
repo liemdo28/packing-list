@@ -748,9 +748,7 @@ New-Item -ItemType Directory -Force -Path $cfDir | Out-Null
 ) | Set-Content -Path (Join-Path $cfDir "config.yml") -Encoding UTF8
 
 Write-Info "Registering DNS CNAME..."
-$ErrorActionPreference = "SilentlyContinue"
-cloudflared tunnel route dns packing-api api.bakudanramen.com *>$null
-$ErrorActionPreference = "Stop"
+try { $null = & cloudflared tunnel route dns packing-api api.bakudanramen.com 2>&1 } catch { }
 
 $cfSvc = Get-Service "cloudflared" -ErrorAction SilentlyContinue
 if ($cfSvc) {
