@@ -13,6 +13,10 @@ const { sequelize, Item, PriceMaster } = require('../models');
 const TODAY = new Date().toISOString().slice(0, 10);
 
 const ITEMS = [
+  // Noodles (from B3 only)
+  { name: 'Thin Noodle',  unit: 'Bag', category: 'Noodles', price: 0 },
+  { name: 'Thick Noodle', unit: 'Bag', category: 'Noodles', price: 0 },
+
   // Sauces & Dressings
   { name: 'Ahi Salad Dressing',                    unit: '6L',           category: 'Sauces',     price: 29.17  },
   { name: 'BBQ Sauce',                              unit: '6L',           category: 'Sauces',     price: 82.29  },
