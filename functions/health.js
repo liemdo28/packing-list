@@ -5,7 +5,7 @@
  * health check endpoint that proxies to the API server via tunnel.
  */
 
-const TUNNEL_BASE = 'https://5031e97c-307a-457d-bd91-d41b15ee1f14.cfargotunnel.com';
+const TUNNEL_BASE = 'https://api.rawsushibar.com';
 
 export async function onRequest() {
   try {
