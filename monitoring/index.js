@@ -4,6 +4,7 @@ const cron = require('node-cron');
 const { checkHealth }      = require('./health_check');
 const { watchdog }         = require('./db_watchdog');
 const { checkDisk }        = require('./disk_check');
+const { checkMemory }      = require('./memory_check');
 const { runSmokeFlow }     = require('./smoke_flow');
 const { runFullSmokeFlow } = require('./smoke_flow_full');
 const { runBackup }        = require('./backup');
@@ -23,9 +24,10 @@ cron.schedule('*/15 * * * *', async () => {
   await runSmokeFlow();
 });
 
-// Every 15 minutes — disk check
+// Every 15 minutes — disk check + memory check
 cron.schedule('*/15 * * * *', async () => {
   await checkDisk();
+  await checkMemory();
 });
 
 // Every 2 hours — full order workflow smoke test (draft → completed)

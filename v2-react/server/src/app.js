@@ -25,6 +25,9 @@ function createApp() {
 
   app.use('/api', routes);
 
+  // ── Health endpoints ───────────────────────────────────────────────────────
+
+  // Quick liveness check (no DB)
   app.get('/health', async (req, res) => {
     const { sequelize } = require('./models');
     let dbStatus = 'ok';
@@ -45,6 +48,49 @@ function createApp() {
       db: { status: dbStatus, latencyMs: dbLatencyMs },
       uptime: Math.floor(process.uptime()),
       version: process.env.npm_package_version || '1.0.0',
+    });
+  });
+
+  // DB-only health check
+  app.get('/health/db', async (req, res) => {
+    const { sequelize } = require('./models');
+    try {
+      const start = Date.now();
+      await sequelize.authenticate();
+      const latencyMs = Date.now() - start;
+      res.json({ status: 'ok', latencyMs });
+    } catch (err) {
+      res.status(503).json({ status: 'error', error: err.message });
+    }
+  });
+
+  // Full system health: DB + memory + uptime + env
+  app.get('/health/full', async (req, res) => {
+    const { sequelize } = require('./models');
+    const mem = process.memoryUsage();
+
+    let db = { status: 'error', latencyMs: null };
+    try {
+      const start = Date.now();
+      await sequelize.authenticate();
+      db = { status: 'ok', latencyMs: Date.now() - start };
+    } catch (err) {
+      db.error = err.message;
+    }
+
+    const healthy = db.status === 'ok';
+    res.status(healthy ? 200 : 503).json({
+      status: healthy ? 'ok' : 'degraded',
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor(process.uptime()),
+      version: process.env.npm_package_version || '1.0.0',
+      env: process.env.NODE_ENV || 'development',
+      db,
+      memory: {
+        heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+        heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+        rssMB: Math.round(mem.rss / 1024 / 1024),
+      },
     });
   });
 
