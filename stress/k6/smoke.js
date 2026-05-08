@@ -28,6 +28,16 @@ export const options = {
 
 export default function () {
   // ── 1. Login ─────────────────────────────────────────────────────────────────
+  const loginRes = http.post(
+    `${BASE_URL}/auth/login`,
+    JSON.stringify({ username: __ENV.ADMIN_USER || 'admin', password: __ENV.ADMIN_PASSWORD || 'password' }),
+    { headers: jsonHeaders() }
+  );
+  if (loginRes.status !== 200) {
+    console.error(`Login failed — HTTP ${loginRes.status}: ${loginRes.body}`);
+    console.error(`Tried: username="${__ENV.ADMIN_USER || 'admin'}" at ${BASE_URL}/auth/login`);
+    throw new Error('Smoke test aborted: could not obtain admin token');
+  }
   const token = loginAdmin();
   check(null, { 'got admin token': () => token !== null });
   if (!token) throw new Error('Smoke test aborted: could not obtain admin token');

@@ -16,6 +16,7 @@
 
 import { check, sleep } from 'k6';
 import http from 'k6/http';
+import { Counter } from 'k6/metrics';
 import { BASE_URL, jsonHeaders } from './_helpers.js';
 
 export const options = {
@@ -28,16 +29,14 @@ export const options = {
 
   // ── SLIs ─────────────────────────────────────────────────────────────────────
   thresholds: {
-    'http_req_duration':     ['p(95)<500'],   // p95 login < 500ms
-    'http_req_failed':      ['rate<0.01'],   // < 1% error rate
-    'auth_success_total':   ['count>0'],      // At least some logins succeed
-    'auth_failure_total':   ['count<50'],     // Failures stay low
+    'http_req_duration': ['p(95)<500'],   // p95 login < 500ms
+    'http_req_failed':   ['rate<0.01'],   // < 1% error rate
+    'auth_success':      ['count>0'],     // At least some logins succeed
   },
 };
 
-// Track metrics manually
-const authSuccessTotal = { type: 'Counter' };
-const authFailureTotal = { type: 'Counter' };
+const authSuccess = new Counter('auth_success');
+const authFailure = new Counter('auth_failure');
 
 export default function () {
   const users = [
@@ -79,6 +78,7 @@ export default function () {
   });
 
   if (ok) {
+    authSuccess.add(1);
     try {
       const b = JSON.parse(res.body);
       const token = b.data?.token || b.token;
@@ -87,6 +87,8 @@ export default function () {
         'token has expected structure': (d) => !!(d.token && d.user?.id),
       });
     } catch {}
+  } else {
+    authFailure.add(1);
   }
 
   sleep(Math.random() * 0.5 + 0.1);

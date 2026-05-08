@@ -108,7 +108,7 @@ export const options = {
   },
   thresholds: {
     // The critical gate: zero server errors means concurrency control is working
-    'server_error':           ['count=0'],
+    'server_error':           ['count==0'],
     'http_req_duration':      ['p(95)<1500'],
     'http_req_failed':       ['rate<0.05'],
   },

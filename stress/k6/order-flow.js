@@ -19,6 +19,7 @@
 
 import { check, sleep } from 'k6';
 import http from 'k6/http';
+import { Counter } from 'k6/metrics';
 import {
   BASE_URL, jsonHeaders, safeJson, loginAdmin, getToken,
   uniqueNote, randItem, ITEM_IDS, STORE_IDS,
@@ -33,15 +34,15 @@ export const options = {
   ],
   thresholds: {
     'http_req_duration': ['p(95)<2000'],
-    'http_req_failed':  ['rate<0.02'],   // Allow 2% failures (transfer-rule rejections)
-    'orders_created':   ['count>0'],
-    'orders_completed': ['count>0'],
+    'http_req_failed':   ['rate<0.02'],   // Allow 2% failures (transfer-rule rejections)
+    'orders_created':    ['count>0'],
+    'orders_completed':  ['count>0'],
   },
 };
 
-export const ordersCreated  = { type: 'Counter' };
-export const ordersCompleted = { type: 'Counter' };
-export const transitionErrors = { type: 'Counter' };
+const ordersCreated   = new Counter('orders_created');
+const ordersCompleted = new Counter('orders_completed');
+const transitionErrors = new Counter('transition_errors');
 
 export default function () {
   const token = loginAdmin();
