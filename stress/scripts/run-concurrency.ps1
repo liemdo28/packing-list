@@ -18,11 +18,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $BASE_URL    = $env:BASE_URL    ?? "http://localhost:3001/api"
-$ADMIN_EMAIL = $env:ADMIN_EMAIL ?? "admin@restaurant.com"
+$ADMIN_USER = $env:ADMIN_USER ?? "admin"
 $ADMIN_PASS  = $env:ADMIN_PASSWORD ?? "password"
 
 $env:BASE_URL = $BASE_URL
-$env:ADMIN_EMAIL = $ADMIN_EMAIL
+$env:ADMIN_USER = $ADMIN_USER
 $env:ADMIN_PASSWORD = $ADMIN_PASS
 $env:ACTION = $Action
 $env:CONCURRENT_USERS = $ConcurrentUsers

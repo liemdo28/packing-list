@@ -7,18 +7,18 @@
 $ErrorActionPreference = "Stop"
 
 $BASE_URL    = $env:BASE_URL    ?? "http://localhost:3001/api"
-$ADMIN_EMAIL = $env:ADMIN_EMAIL ?? "admin@restaurant.com"
+$ADMIN_USER = $env:ADMIN_USER ?? "admin"
 $ADMIN_PASS  = $env:ADMIN_PASSWORD ?? "password"
-$B1_EMAIL    = $env:B1_EMAIL    ?? "b1@restaurant.com"
-$B2_EMAIL    = $env:B2_EMAIL    ?? "b2@restaurant.com"
-$B3_EMAIL    = $env:B3_EMAIL    ?? "b3@restaurant.com"
+$B1_USER    = $env:B1_USER    ?? "user_b1"
+$B2_USER    = $env:B2_USER    ?? "user_b2"
+$B3_USER    = $env:B3_USER    ?? "user_b3"
 
 $env:BASE_URL = $BASE_URL
-$env:ADMIN_EMAIL = $ADMIN_EMAIL
+$env:ADMIN_USER = $ADMIN_USER
 $env:ADMIN_PASSWORD = $ADMIN_PASS
-$env:B1_EMAIL = $B1_EMAIL
-$env:B2_EMAIL = $B2_EMAIL
-$env:B3_EMAIL = $B3_EMAIL
+$env:B1_USER = $B1_USER
+$env:B2_USER = $B2_USER
+$env:B3_USER = $B3_USER
 
 $REPORT_DIR = Join-Path $PSScriptRoot "..\reports"
 if (-not (Test-Path $REPORT_DIR)) {
