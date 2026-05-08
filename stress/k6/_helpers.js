@@ -39,7 +39,7 @@ export const ITEM_IDS = {
 export function jsonHeaders(token = null) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return { headers };
+  return headers;
 }
 
 export function get(url, token = null) {
@@ -119,10 +119,14 @@ export function getToken() {
 /**
  * Login as admin and return token. Cached per VU.
  */
-export function loginAdmin() { return login(ADMIN_USER, ADMIN_PASSWORD); }
-export function loginB1()    { return login(B1_USER, B1_PASSWORD); }
-export function loginB2()    { return login(B2_USER, B2_PASSWORD); }
-export function loginB3()    { return login(B3_USER, B3_PASSWORD); }
+export const ACCOUNTANT_USER     = __ENV.ACCOUNTANT_USER     || 'accountant';
+export const ACCOUNTANT_PASSWORD = __ENV.ACCOUNTANT_PASSWORD || 'password';
+
+export function loginAdmin()      { return login(ADMIN_USER, ADMIN_PASSWORD); }
+export function loginB1()         { return login(B1_USER, B1_PASSWORD); }
+export function loginB2()         { return login(B2_USER, B2_PASSWORD); }
+export function loginB3()         { return login(B3_USER, B3_PASSWORD); }
+export function loginAccountant() { return login(ACCOUNTANT_USER, ACCOUNTANT_PASSWORD); }
 
 // ─── JSON helpers ─────────────────────────────────────────────────────────────
 
