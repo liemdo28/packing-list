@@ -27,6 +27,30 @@ function createApp() {
 
   // ── Health endpoints ───────────────────────────────────────────────────────
 
+  // Quick liveness check (no DB) — also available at /api/health for consistency
+  app.get('/api/health', async (req, res) => {
+    const { sequelize } = require('./models');
+    let dbStatus = 'ok';
+    let dbLatencyMs = null;
+
+    try {
+      const start = Date.now();
+      await sequelize.authenticate();
+      dbLatencyMs = Date.now() - start;
+    } catch {
+      dbStatus = 'error';
+    }
+
+    const healthy = dbStatus === 'ok';
+    res.status(healthy ? 200 : 503).json({
+      status: healthy ? 'ok' : 'degraded',
+      timestamp: new Date().toISOString(),
+      db: { status: dbStatus, latencyMs: dbLatencyMs },
+      uptime: Math.floor(process.uptime()),
+      version: process.env.npm_package_version || '1.0.0',
+    });
+  });
+
   // Quick liveness check (no DB)
   app.get('/health', async (req, res) => {
     const { sequelize } = require('./models');
