@@ -1,276 +1,693 @@
-# Restaurant Operations System - User Guide
+# Restaurant Operations System v2.0
 
-**Version 2.0**
-**Last Updated: May 2026**
+# Complete User Guide & Operational Handbook
 
----
+## System URL
 
-## Table of Contents
-
-1. [Getting Started](#1-getting-started)
-2. [Dashboard](#2-dashboard)
-3. [Orders Management](#3-orders-management)
-4. [Notifications](#4-notifications)
-5. [Packing](#5-packing)
-6. [FAQ & Troubleshooting](#6-faq--troubleshooting)
+https://packinglist.bakudanramen.com
 
 ---
 
-## 1. Getting Started
+# TABLE OF CONTENTS
 
-### 1.1 Login
-
-1. Open the application URL in your browser
-2. Enter your **Username** and **Password**
-3. Click **Sign In**
-4. You will be redirected to the Dashboard
-
-### 1.2 User Roles
-
-The system supports the following roles:
-
-| Role | Description |
-|------|-------------|
-| **Admin** | Full system access, manage users, stores, settings |
-| **B1 (Branch 1)** | Create orders, manage items, view reports |
-| **B2 (Branch 2)** | Manage orders, invoices, packing |
-| **B3 (Branch 3)** | Supplier role, receive and fulfill orders |
-| **Accountant** | View invoices, pricing, financial reports |
-
-### 1.3 Navigation
-
-- **Left Sidebar**: Main menu with all sections
-- **Top Right**: Notification bell and user profile
-- **Main Content Area**: Displays current section
+1. Introduction
+2. User Roles
+3. Logging In
+4. Dashboard Overview
+5. Notifications
+6. Creating Orders
+7. Supplier Workflow
+8. Shipping Workflow
+9. Receiving Workflow
+10. Discrepancy Handling
+11. Accountant Workflow
+12. Admin Workflow
+13. Reports & Invoices
+14. Password & Security
+15. Common Mistakes
+16. Troubleshooting
+17. Best Practices
+18. Workflow Status Guide
 
 ---
 
-## 2. Dashboard
+# 1. INTRODUCTION
 
-The Dashboard provides a quick overview of your daily activities.
+The Restaurant Operations System is designed to help stores:
 
-### 2.1 Dashboard Widgets
+* request items between stores
+* manage packing lists
+* track shipments
+* confirm received goods
+* handle discrepancies
+* notify related stores automatically
+* generate accounting summaries and reports
 
-- **Today's Orders**: Number of orders created today
-- **Pending Actions**: Orders waiting for your action
-- **Recent Activity**: Latest order status changes
-- **Quick Actions**: Create new order, view pending items
+The system is designed to:
 
-### 2.2 Quick Actions
-
-From the dashboard, you can:
-- Create a new order
-- View your pending tasks
-- Check delayed orders
-- Access recent orders
-
----
-
-## 3. Orders Management
-
-### 3.1 Order Workflow
-
-Orders follow this workflow:
-
-```
-DRAFT → SUBMITTED → PREPARING → SHIPPING → RECEIVED → COMPLETED
-                    ↓
-                 CANCELLED
-```
-
-### 3.2 Creating an Order (B1 Role)
-
-1. Go to **Orders** in the sidebar
-2. Click **Create Order**
-3. Select **From Store** (your store) and **To Store** (supplier)
-4. Add items with quantities
-5. Add optional notes
-6. Click **Create Order**
-
-**Important**: Orders start as Draft and must be submitted to begin processing.
-
-### 3.3 Order Actions by Role
-
-#### For B1 (Requester Store):
-
-| Status | Actions Available |
-|--------|-------------------|
-| Draft | Edit, Delete, Submit |
-| Submitted | Cancel (with reason) |
-| Preparing | View progress |
-| Shipped | Acknowledge receipt |
-| Completed | View invoice |
-| Cancelled | View cancellation reason |
-
-#### For B3 (Supplier Store):
-
-| Status | Actions Available |
-|--------|-------------------|
-| Submitted | Review & Accept or Reject |
-| Accepted | Start Preparing |
-| Preparing | Mark as Ready |
-| Ready | Confirm Shipment |
-
-### 3.4 Order Detail Page
-
-Click on any order to view:
-- Order number and date
-- Source and destination stores
-- Item list with quantities
-- Current status
-- Activity timeline
-- Notes and comments
-
-### 3.5 Filtering Orders
-
-Use the filter options to find orders by:
-- Status (Draft, Submitted, Preparing, etc.)
-- Store (From/To)
-- Date range
-- Order number search
+* reduce confusion
+* prevent missing work
+* improve communication
+* create operational accountability
+* support accounting reconciliation
 
 ---
 
-## 4. Notifications
+# 2. USER ROLES
 
-### 4.1 Notification Bell
+## Admin
 
-The notification bell is located in the **top-right corner** of the screen.
+Can:
 
-- **Red badge**: Shows number of unread notifications
-- **Click**: Opens notification dropdown
-
-### 4.2 Notification Types
-
-| Type | Description | Color |
-|------|-------------|-------|
-| Order | Order status updates | Blue |
-| Shipment | Shipping/delivery updates | Purple |
-| Discrepancy | Quantity mismatch alerts | Red |
-| Alert | Important system alerts | Orange |
-
-### 4.3 Severity Levels
-
-| Level | Meaning |
-|-------|---------|
-| **Low** | Informational only |
-| **Medium** | Normal workflow updates |
-| **High** | Needs attention soon |
-| **Critical** | Immediate action required |
-
-### 4.4 Viewing Notifications
-
-1. Click the **bell icon** in the top-right
-2. View recent notifications in the dropdown
-3. Click any notification to open the related order
-4. Click **"View all notifications"** for full history
-
-### 4.5 Notification Page
-
-Navigate to **Notifications** from the sidebar for:
-- Full notification history
-- Filter by type, status, severity
-- Mark as read
-- Mark all as read
-
-### 4.6 What Triggers Notifications
-
-You will receive notifications when:
-
-| Event | Who Receives |
-|-------|-------------|
-| New order created | Supplier store users |
-| Order submitted | Supplier store users |
-| Order accepted | Requester store users |
-| Order rejected | Requester store users + Admin |
-| Quantity changed | Requester store users |
-| Order shipped | Requester store users |
-| Order received | Supplier store users |
-| Order completed | Both stores + Admin |
-| Discrepancy detected | Supplier + Admin |
+* see all stores
+* manage users
+* review all orders
+* override workflows
+* review discrepancies
+* access accounting reports
+* manage pricing
+* view audit logs
 
 ---
 
-## 5. Packing
+## Store User
 
-### 5.1 Packing Overview
+Can:
 
-The Packing feature helps manage physical packing and delivery of orders.
+* create requests
+* receive notifications
+* accept/reject orders
+* ship orders
+* receive orders
+* update received quantities
 
-### 5.2 Creating a Packing Job
+Users only see workflows related to:
 
-1. Go to **Packing** in the sidebar
-2. Click **Create Packing**
-3. Select the order to pack
-4. Add items with actual packed quantities
-5. Save the packing job
-
-### 5.3 Packing Templates
-
-Create reusable templates for common packing configurations:
-1. Go to **Packing Templates**
-2. Click **Create Template**
-3. Define template name and items
-4. Save for future use
+* their store
+* assigned tasks
+* authorized permissions
 
 ---
 
-## 6. FAQ & Troubleshooting
+## Accountant
 
-### Q: I can't see the Orders menu
-**A:** Your role may not have order permissions. Contact your administrator.
+Can:
 
-### Q: Why isn't my notification bell updating?
-**A:** Refresh the page. Notifications update every 15 seconds automatically.
+* view completed orders
+* export reports
+* review invoices
+* filter by:
 
-### Q: I created an order but the supplier hasn't seen it
-**A:** Make sure you clicked **Submit** after creating the order. Draft orders are not sent to suppliers.
-
-### Q: Can I edit an order after submitting?
-**A:** Only draft orders can be edited. Once submitted, contact the supplier to reject and recreate.
-
-### Q: What happens if quantities are wrong?
-**A:** If a discrepancy is detected during receiving, an alert is sent to the supplier and admin.
-
-### Q: How do I cancel an order?
-**A:** For draft orders, click Delete. For submitted orders, click Cancel and provide a reason.
+  * date
+  * week
+  * month
+  * year
+* review discrepancies
+* reconcile transfer records
 
 ---
 
-## Quick Reference
+# 3. LOGGING IN
 
-### Order Status Meanings
+## Step 1
 
-| Status | Meaning |
-|--------|---------|
-| Draft | Created but not submitted |
-| Submitted | Sent to supplier, awaiting review |
-| Preparing | Supplier is preparing the order |
-| Ready to Ship | Order packed and ready |
-| Shipped | Order in transit |
-| Received | Order arrived at destination |
-| Completed | Order fully processed |
-| Cancelled | Order cancelled |
+Open:
 
-### Common Actions
-
-| Task | Location |
-|------|----------|
-| Create Order | Orders → Create Order |
-| Submit Order | Order Detail → Submit button |
-| View Notifications | Top-right bell icon |
-| Change Password | User menu (top-right) |
-| Contact Admin | Use /admin command or email |
+https://packinglist.bakudanramen.com
 
 ---
 
-## Support
+## Step 2
 
-For technical issues or questions:
-- Contact your system administrator
-- Email: admin@yourcompany.com
-- Internal Support: @admin
+Enter:
+
+* Username
+* Password
+
+Then click:
+"Sign In"
 
 ---
 
-*This guide is for the Restaurant Operations System v2.0*
+## Step 3
+
+First-time login:
+
+* change temporary password
+* save securely
+
+Never share passwords.
+
+---
+
+# 4. DASHBOARD OVERVIEW
+
+The Dashboard is your operational home screen.
+
+You will see:
+
+* pending actions
+* notifications
+* incoming requests
+* shipment status
+* quick actions
+* order summaries
+
+---
+
+## "Needs Your Attention"
+
+This section shows:
+
+* work waiting for action
+* overdue items
+* pending approvals
+* discrepancies
+
+Always review this first.
+
+---
+
+# 5. NOTIFICATIONS
+
+The notification bell is located at the top-right corner.
+
+You receive notifications when:
+
+* a new order is submitted
+* another store accepts/rejects your request
+* shipment is sent
+* discrepancy occurs
+* order completes
+
+---
+
+## Notification Badge
+
+Red badge number:
+
+* unread notifications
+
+Click the bell to:
+
+* read updates
+* open related orders
+* mark notifications as read
+
+---
+
+# 6. CREATING ORDERS
+
+## Step 1
+
+Go to:
+Orders → Create Order
+
+---
+
+## Step 2
+
+Select:
+
+* requesting store
+* supplier store
+
+---
+
+## Step 3
+
+Add items:
+
+* item name
+* quantity
+* notes if needed
+
+---
+
+## Step 4
+
+Review carefully:
+
+* item
+* quantity
+* destination store
+
+---
+
+## Step 5
+
+Click:
+"Create Order"
+
+Order status:
+Draft
+
+---
+
+## Step 6
+
+Click:
+"Submit Order"
+
+Supplier store now receives notification.
+
+---
+
+# 7. SUPPLIER WORKFLOW
+
+When your store receives a request:
+
+## Step 1
+
+Open notification or incoming order.
+
+---
+
+## Step 2
+
+Review:
+
+* requested items
+* requested quantities
+* notes
+
+---
+
+## Step 3
+
+Confirm available quantity.
+
+You may:
+
+* approve requested quantity
+* reduce quantity
+* reject unavailable items
+* add notes
+
+---
+
+## Example
+
+Requested:
+10
+
+Supplier confirms:
+8
+
+Reason:
+"Only 8 available"
+
+---
+
+## Step 4
+
+Click:
+"Accept & Prepare"
+
+Requester store receives notification.
+
+---
+
+# 8. SHIPPING WORKFLOW
+
+## Step 1
+
+Prepare confirmed items.
+
+---
+
+## Step 2
+
+Verify:
+
+* quantity
+* packaging
+* labels
+
+---
+
+## Step 3
+
+Click:
+"Ready to Ship"
+
+---
+
+## Step 4
+
+Click:
+"Ship Order"
+
+Receiving store receives shipment notification.
+
+---
+
+# 9. RECEIVING WORKFLOW
+
+When shipment arrives:
+
+## Step 1
+
+Open incoming shipment.
+
+---
+
+## Step 2
+
+Compare:
+
+* requested quantity
+* supplier confirmed quantity
+* actual received quantity
+
+---
+
+## Step 3
+
+Enter actual received quantity.
+
+---
+
+## Example
+
+Requested:
+10
+
+Supplier confirmed:
+8
+
+Actually received:
+7
+
+Reason:
+"1 item missing"
+
+---
+
+## Step 4
+
+Add discrepancy note if needed.
+
+---
+
+## Step 5
+
+Click:
+"Mark Received"
+
+---
+
+# 10. DISCREPANCY HANDLING
+
+Discrepancy occurs when:
+
+* confirmed quantity differs
+  OR
+* received quantity differs
+
+---
+
+## Required Action
+
+Always:
+
+* update actual quantity
+* add clear explanation
+* verify before completion
+
+---
+
+## System Behavior
+
+The system will:
+
+* highlight discrepancy
+* notify related users/admin
+* store audit logs
+
+---
+
+# 11. ACCOUNTANT WORKFLOW
+
+## Accountant Dashboard
+
+Accountants can:
+
+* review completed orders
+* export invoices
+* review discrepancies
+* track monthly transfers
+
+---
+
+## Filters
+
+Reports support:
+
+* date
+* week
+* month
+* year
+* store
+* status
+
+---
+
+## Export
+
+Supported:
+
+* PDF
+* Excel
+* CSV
+
+---
+
+## Invoice Includes
+
+* order number
+* date
+* stores involved
+* item list
+* quantities
+* prices
+* totals
+* discrepancy notes
+
+---
+
+# 12. ADMIN WORKFLOW
+
+Admins can:
+
+* manage users
+* reset passwords
+* unlock accounts
+* view all stores
+* override workflows
+* review logs
+* review notifications
+* access all reports
+
+---
+
+# 13. REPORTS & INVOICES
+
+Reports include:
+
+* daily summary
+* weekly summary
+* monthly summary
+* yearly summary
+* store transfer totals
+* item movement
+* discrepancy report
+
+---
+
+# 14. PASSWORD & SECURITY
+
+## Users Can:
+
+* change password
+* update profile
+* logout
+
+---
+
+## Admin Can:
+
+* reset passwords
+* force password reset
+* unlock accounts
+
+---
+
+## Security Rules
+
+Never:
+
+* share passwords
+* use another store's account
+* leave accounts logged in on shared devices
+
+---
+
+# 15. COMMON MISTAKES
+
+## Mistake 1
+
+Creating order but forgetting to Submit.
+
+Result:
+Supplier never receives notification.
+
+---
+
+## Mistake 2
+
+Shipping wrong quantity.
+
+Always verify before shipment.
+
+---
+
+## Mistake 3
+
+Ignoring discrepancies.
+
+All discrepancies must include notes.
+
+---
+
+## Mistake 4
+
+Using another user's account.
+
+This breaks audit tracking.
+
+---
+
+# 16. TROUBLESHOOTING
+
+## Cannot Login
+
+Possible causes:
+
+* wrong password
+* account locked
+* backend unavailable
+
+Contact Admin.
+
+---
+
+## Cannot See Order
+
+Possible causes:
+
+* different store
+* insufficient permissions
+* order still private
+
+---
+
+## Notifications Missing
+
+Try:
+
+* refresh page
+* check notification permissions
+* contact Admin
+
+---
+
+# 17. BEST PRACTICES
+
+Always:
+
+* follow workflow order
+* read notifications promptly
+* verify quantities carefully
+* add notes when changing quantities
+* complete tasks immediately
+
+---
+
+# 18. ORDER STATUS GUIDE
+
+## Draft
+
+Order created but not submitted.
+
+---
+
+## Submitted
+
+Request sent to supplier.
+
+---
+
+## Supplier Reviewing
+
+Supplier reviewing stock.
+
+---
+
+## Supplier Accepted
+
+Supplier confirmed quantities.
+
+---
+
+## Preparing
+
+Items being prepared.
+
+---
+
+## Ready to Ship
+
+Preparation complete.
+
+---
+
+## Shipped
+
+Items shipped.
+
+---
+
+## Receiving Review
+
+Receiving store verifying shipment.
+
+---
+
+## Received
+
+Shipment confirmed received.
+
+---
+
+## Completed
+
+Workflow finished successfully.
+
+---
+
+# FINAL NOTES
+
+This system is designed to:
+
+* improve communication
+* reduce operational mistakes
+* track accountability
+* support accounting workflows
+* create visibility between stores
+
+If unsure about any workflow:
+
+* stop
+* review the order carefully
+* contact Admin before proceeding.
