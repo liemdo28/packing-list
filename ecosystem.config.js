@@ -47,7 +47,7 @@ module.exports = {
       merge_logs: true,
     },
     {
-      // Cloudflare Tunnel — exposes localhost:3001 via api.rawsushibar.com
+      // Cloudflare Tunnel — exposes localhost:3001 via api.bakudanramen.com
       // Locally-managed tunnel: config.yml ingress catch-all → http://localhost:3001
       name: 'packing-tunnel',
       script: 'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',

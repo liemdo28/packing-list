@@ -12,7 +12,9 @@
     "test:summary": "k6 run stress/k6/summary-load.js",
     "test:soak": "k6 run stress/k6/soak-mixed.js",
     "test:auth": "k6 run stress/k6/auth-load.js",
-    "test:all": "k6 run stress/k6/smoke.js && k6 run stress/k6/same-order-concurrency.js && k6 run stress/k6/order-flow.js && k6 run stress/k6/summary-load.js"
+    "test:all": "k6 run stress/k6/smoke.js && k6 run stress/k6/same-order-concurrency.js && k6 run stress/k6/order-flow.js && k6 run stress/k6/summary-load.js",
+    "test:api": "echo 'API integration tests not yet implemented — see testing/ roadmap'",
+    "test:ui": "npx playwright test --reporter=list 2>/dev/null || echo 'Playwright tests not yet implemented'"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",

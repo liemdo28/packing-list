@@ -56,7 +56,7 @@ jobs:
 
       - name: Prepare automation env
         run: |
-          mkdir -p testing/config
+          mkdir -p testing/config testing/reports
           cat > testing/config/env.json <<'EOF'
           {
             "environment": "ci",
