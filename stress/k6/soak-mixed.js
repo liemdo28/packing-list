@@ -87,7 +87,7 @@ function runOrderFlow(token, roleLabel) {
       from_store_id: pair.from,
       to_store_id:   pair.to,
       notes:         uniqueNote(`soak-${roleLabel}`),
-      lines:         [{ item_id: itemId, requested_qty: Math.floor(Math.random() * 10) + 1 }],
+      lines:         [{ item_id: itemId, quantity: Math.floor(Math.random() * 10) + 1 }],
     }),
     { headers: jsonHeaders(token) }
   );

@@ -88,7 +88,7 @@ export default function () {
       from_store_id: pair.from,
       to_store_id:   pair.to,
       notes:         uniqueNote('summary-write'),
-      lines:         [{ item_id: itemId, requested_qty: 1 }],
+      lines:         [{ item_id: itemId, quantity: 1 }],
     }),
     { headers: jsonHeaders(token) }
   );

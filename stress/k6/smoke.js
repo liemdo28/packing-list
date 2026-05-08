@@ -52,7 +52,7 @@ export default function () {
     from_store_id: 1,
     to_store_id:   2,
     notes:         `smoke-${Date.now()}`,
-    lines:         [{ item_id: firstItemId, requested_qty: 5 }],
+    lines:         [{ item_id: firstItemId, quantity: 5 }],
   };
 
   const createRes = http.post(

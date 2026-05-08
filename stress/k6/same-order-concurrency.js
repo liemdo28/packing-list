@@ -77,7 +77,7 @@ export function setup() {
         from_store_id: 1,
         to_store_id:   2,
         notes:         `concurrency-test-${Date.now()}`,
-        lines:         [{ item_id: 1, requested_qty: 10 }],
+        lines:         [{ item_id: 1, quantity: 10 }],
       }),
       { headers: jsonHeaders(token) }
     );

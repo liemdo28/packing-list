@@ -80,7 +80,7 @@ class OrderService {
    * Create a new draft order.
    * Full create runs inside a transaction; order number locked to avoid duplicates.
    */
-  static async createOrder({ fromStoreId, toStoreId, lines, notes, userId }) {
+  static async createOrder({ fromStoreId, toStoreId, lines, notes, recipientName, userId }) {
     await this.validateTransfer(fromStoreId, toStoreId);
 
     const t = await sequelize.transaction();
@@ -93,6 +93,7 @@ class OrderService {
         to_store_id: toStoreId,
         status: ORDER_STATUSES.DRAFT,
         notes,
+        recipient_name: recipientName || null,
         created_by: userId,
       }, { transaction: t });
 
@@ -110,7 +111,7 @@ class OrderService {
       const created = await this._findOrderWithRelations(order.id);
 
       // Notify supplier (from_store) immediately when a new order draft is created
-      NotificationService.notifyOrderStatusChange(created, 'submitted', userId)
+      NotificationService.notifyOrderStatusChange(created, ORDER_STATUSES.SUPPLIER_REVIEWING, userId)
         .catch((err) => console.error('Notification error on create:', err.message));
 
       return created;
@@ -247,12 +248,12 @@ class OrderService {
       }
 
       await order.update(updateData, { transaction: t });
+      await t.commit();
 
       // Fire notification after commit (non-blocking)
       NotificationService.notifyOrderStatusChange(order, newStatus, userId)
         .catch((err) => console.error('Notification error:', err.message));
 
-      await t.commit();
       return this._findOrderWithRelations(orderId);
     } catch (err) {
       await t.rollback();

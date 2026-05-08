@@ -6,12 +6,13 @@
     "build": "cd v2-react/client && npm run build",
     "dev": "cd v2-react/client && npm run dev",
     "build:client": "cd v2-react/client && npm run build",
-    "test:smoke": "node testing/scripts/run-smoke.js",
-    "test:api": "node testing/scripts/run-api.js",
-    "test:ui": "node testing/scripts/run-ui.js",
-    "test:load": "node testing/scripts/run-load.js",
-    "test:soak": "node testing/scripts/run-soak.js",
-    "test:all": "node testing/scripts/run-all.js"
+    "test:smoke": "k6 run stress/k6/smoke.js",
+    "test:concurrency": "k6 run stress/k6/same-order-concurrency.js",
+    "test:load": "k6 run stress/k6/order-flow.js",
+    "test:summary": "k6 run stress/k6/summary-load.js",
+    "test:soak": "k6 run stress/k6/soak-mixed.js",
+    "test:auth": "k6 run stress/k6/auth-load.js",
+    "test:all": "k6 run stress/k6/smoke.js && k6 run stress/k6/same-order-concurrency.js && k6 run stress/k6/order-flow.js && k6 run stress/k6/summary-load.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",

@@ -20,7 +20,6 @@
 
 require('dotenv').config();
 
-const bcrypt = require('bcryptjs');
 const { sequelize, Store, User } = require('../models');
 
 const ADMIN_PASS  = process.env.SEED_ADMIN_PASS;
@@ -64,17 +63,12 @@ async function seedProd() {
 
   // ── Users ────────────────────────────────────────────────────────────────────
 
-  const BCRYPT_ROUNDS = 12;
-  const [adminHash, storeHash, acctHash] = await Promise.all([
-    bcrypt.hash(ADMIN_PASS, BCRYPT_ROUNDS),
-    bcrypt.hash(STORE_PASS, BCRYPT_ROUNDS),
-    bcrypt.hash(ACCT_PASS,  BCRYPT_ROUNDS),
-  ]);
-
+  // Pass plain-text passwords — the model's beforeCreate/beforeUpdate hooks
+  // handle bcrypt hashing, so we must NOT pre-hash here to avoid double-hashing.
   const userDefs = [
     {
       username:  'admin',
-      password:  adminHash,
+      password:  ADMIN_PASS,
       full_name: 'System Admin',
       email:     'admin@packinglist.local',
       role:      'admin',
@@ -83,7 +77,7 @@ async function seedProd() {
     },
     {
       username:  'user_b1',
-      password:  storeHash,
+      password:  STORE_PASS,
       full_name: 'B1 Store Manager',
       email:     'b1@packinglist.local',
       role:      'b1',
@@ -92,7 +86,7 @@ async function seedProd() {
     },
     {
       username:  'user_b2',
-      password:  storeHash,
+      password:  STORE_PASS,
       full_name: 'B2 Store Manager',
       email:     'b2@packinglist.local',
       role:      'b2',
@@ -101,7 +95,7 @@ async function seedProd() {
     },
     {
       username:  'user_b3',
-      password:  storeHash,
+      password:  STORE_PASS,
       full_name: 'B3 Store Manager',
       email:     'b3@packinglist.local',
       role:      'b3',
@@ -110,7 +104,7 @@ async function seedProd() {
     },
     {
       username:  'accountant',
-      password:  acctHash,
+      password:  ACCT_PASS,
       full_name: 'Finance Team',
       email:     'finance@packinglist.local',
       role:      'accountant',

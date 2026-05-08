@@ -47,14 +47,17 @@ module.exports = {
       merge_logs: true,
     },
     {
-      // Cloudflare Tunnel — exposes localhost:3001 to packinglist.bakudanramen.com/api
+      // Cloudflare Tunnel — exposes localhost:3001 via api.rawsushibar.com
+      // Locally-managed tunnel: config.yml ingress catch-all → http://localhost:3001
       name: 'packing-tunnel',
       script: 'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
-      args:   'tunnel --no-autoupdate run',
+      args:   'tunnel --no-autoupdate --protocol http2 run packing-local',
       interpreter: 'none',
       instances: 1,
       autorestart: true,
       watch: false,
+      max_restarts: 10,
+      min_uptime: '5s',
       max_memory_restart: '128M',
       error_file: './logs/tunnel-error.log',
       out_file:   './logs/tunnel-out.log',

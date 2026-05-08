@@ -1,49 +1,755 @@
+/**
+ * Notification Service
+ * Handles creating and dispatching notifications for order events
+ */
+const { Notification, User } = require('../models');
+const { Op } = require('sequelize');
+
+// Event types
+const EVENT_TYPES = {
+  ORDER_CREATED: 'order_created',
+  ORDER_SUBMITTED: 'order_submitted',
+  SUPPLIER_REVIEWING: 'supplier_reviewing',
+  SUPPLIER_ACCEPTED: 'supplier_accepted',
+  SUPPLIER_REJECTED: 'supplier_rejected',
+  SUPPLIER_CHANGED_QUANTITY: 'supplier_changed_quantity',
+  PREPARING_STARTED: 'preparing_started',
+  ORDER_SHIPPED: 'order_shipped',
+  RECEIVING_STARTED: 'receiving_started',
+  DISCREPANCY_DETECTED: 'discrepancy_detected',
+  ORDER_RECEIVED:  'order_received',
+  ORDER_COMPLETED: 'order_completed',
+  ORDER_CANCELLED: 'order_cancelled',
+  ORDER_DELAYED: 'order_delayed',
+  ADMIN_OVERRIDE: 'admin_override',
+  ITEM_QUANTITY_CHANGED: 'item_quantity_changed',
+  SHIPMENT_CONFIRMED: 'shipment_confirmed',
+};
+
+// Notification types
+const NOTIF_TYPES = {
+  ORDER: 'order',
+  DISCREPANCY: 'discrepancy',
+  SHIPMENT: 'shipment',
+  ALERT: 'alert',
+  SYSTEM: 'system',
+};
+
+// Severity levels
+const SEVERITY = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  CRITICAL: 'critical',
+};
+
+/**
+ * Create a notification for a user
+ */
+async function createNotification(data) {
+  const {
+    userId,
+    orderId,
+    orderNumber,
+    eventType,
+    title,
+    message,
+    type = NOTIF_TYPES.ORDER,
+    severity = SEVERITY.MEDIUM,
+    sourceStore,
+    targetStore,
+    actorUser,
+    deepLinkUrl,
+    metadata = {},
+  } = data;
+
+  const notification = await Notification.create({
+    user_id: userId,
+    order_id: orderId,
+    order_number: orderNumber,
+    event_type: eventType,
+    title,
+    message,
+    type,
+    severity,
+    source_store_id: sourceStore?.id,
+    source_store_name: sourceStore?.name,
+    target_store_id: targetStore?.id,
+    target_store_name: targetStore?.name,
+    actor_user_id: actorUser?.id,
+    actor_user_name: actorUser?.name,
+    deep_link_url: deepLinkUrl,
+    metadata,
+  });
+
+  // Emit socket event for real-time updates
+  emitNotification(userId, notification);
+
+  return notification;
+}
+
+/**
+ * Create notifications for multiple users
+ */
+async function createBulkNotifications(notifications) {
+  const created = await Notification.bulkCreate(
+    notifications.map(n => ({
+      user_id: n.userId,
+      order_id: n.orderId,
+      order_number: n.orderNumber,
+      event_type: n.eventType,
+      title: n.title,
+      message: n.message,
+      type: n.type || NOTIF_TYPES.ORDER,
+      severity: n.severity || SEVERITY.MEDIUM,
+      source_store_id: n.sourceStore?.id,
+      source_store_name: n.sourceStore?.name,
+      target_store_id: n.targetStore?.id,
+      target_store_name: n.targetStore?.name,
+      actor_user_id: n.actorUser?.id,
+      actor_user_name: n.actorUser?.name,
+      deep_link_url: n.deepLinkUrl,
+      metadata: n.metadata || {},
+    }))
+  );
+
+  // Emit events for each user
+  created.forEach(notif => {
+    emitNotification(notif.user_id, notif);
+  });
+
+  return created;
+}
+
+/**
+ * Notify all users in a store
+ */
+async function notifyStore(storeId, storeName, data) {
+  const users = await User.findAll({
+    where: { store_id: storeId },
+    attributes: ['id'],
+  });
+
+  const notifications = users.map(user => ({
+    ...data,
+    userId: user.id,
+    targetStore: { id: storeId, name: storeName },
+  }));
+
+  return createBulkNotifications(notifications);
+}
+
+/**
+ * Notify all admins
+ */
+async function notifyAdmins(data) {
+  const admins = await User.findAll({
+    where: { role: 'admin' },
+    attributes: ['id'],
+  });
+
+  const notifications = admins.map(admin => ({
+    ...data,
+    userId: admin.id,
+  }));
+
+  return createBulkNotifications(notifications);
+}
+
+// Simulated socket.io emit - will be connected in app.js
+let emitFn = null;
+function setEmitFunction(fn) {
+  emitFn = fn;
+}
+
+function emitNotification(userId, notification) {
+  if (emitFn) {
+    emitFn(userId, notification.toJSON ? notification.toJSON() : notification);
+  }
+}
+
+/**
+ * Order event handlers
+ */
+async function onOrderCreated(order, actorUser) {
+  const sourceStore = await order.getFromStore();
+  const destinationStore = await order.getToStore();
+
+  // A newly-created draft needs action from the source store first.
+  await notifyStore(sourceStore.id, sourceStore.name, {
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.ORDER_CREATED,
+    title: 'New Order Request',
+    message: `${destinationStore?.name || 'Destination store'} created a new order for ${sourceStore?.name || 'source store'} to review`,
+    type: NOTIF_TYPES.ORDER,
+    severity: SEVERITY.HIGH,
+    sourceStore: { id: destinationStore?.id, name: destinationStore?.name },
+    targetStore: { id: sourceStore?.id, name: sourceStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+    metadata: {
+      actionRequiredByStoreId: sourceStore?.id,
+      sourceStoreId: sourceStore?.id,
+      destinationStoreId: destinationStore?.id,
+    },
+  });
+
+  // Notify admins
+  await notifyAdmins({
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.ORDER_CREATED,
+    title: 'New Order Created',
+    message: `${destinationStore?.name || 'Unknown'} created order #${order.order_number || order.id} for ${sourceStore?.name || 'source store'}`,
+    type: NOTIF_TYPES.ORDER,
+    severity: SEVERITY.LOW,
+    sourceStore: { id: destinationStore?.id, name: destinationStore?.name },
+    targetStore: { id: sourceStore?.id, name: sourceStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  });
+}
+
+async function onSupplierAccepted(order, actorUser) {
+  const requesterStore = await order.getFromStore();
+  const supplierStore = await order.getToStore();
+  
+  // Notify requester
+  const requesterUsers = await User.findAll({
+    where: { store_id: requesterStore?.id },
+  });
+
+  await createBulkNotifications(requesterUsers.map(user => ({
+    userId: user.id,
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.SUPPLIER_ACCEPTED,
+    title: 'Order Accepted',
+    message: `${supplierStore?.name || 'Supplier'} accepted Order #${order.order_number || order.id}`,
+    type: NOTIF_TYPES.ORDER,
+    severity: SEVERITY.MEDIUM,
+    sourceStore: { id: supplierStore?.id, name: supplierStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  })));
+}
+
+async function onSupplierRejected(order, actorUser, reason = '') {
+  const requesterStore = await order.getFromStore();
+  const supplierStore = await order.getToStore();
+
+  const requesterUsers = await User.findAll({
+    where: { store_id: requesterStore?.id },
+  });
+
+  await createBulkNotifications(requesterUsers.map(user => ({
+    userId: user.id,
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.SUPPLIER_REJECTED,
+    title: 'Order Rejected',
+    message: `${supplierStore?.name || 'Supplier'} rejected Order #${order.order_number || order.id}${reason ? `: ${reason}` : ''}`,
+    type: NOTIF_TYPES.ALERT,
+    severity: SEVERITY.HIGH,
+    sourceStore: { id: supplierStore?.id, name: supplierStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  })));
+
+  // Alert admins
+  await notifyAdmins({
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.SUPPLIER_REJECTED,
+    title: 'Order Rejected by Supplier',
+    message: `${supplierStore?.name || 'Supplier'} rejected order #${order.order_number || order.id}`,
+    type: NOTIF_TYPES.ALERT,
+    severity: SEVERITY.HIGH,
+    sourceStore: { id: supplierStore?.id, name: supplierStore?.name },
+  });
+}
+
+async function onQuantityChanged(order, itemName, oldQty, newQty, actorUser) {
+  const requesterStore = await order.getFromStore();
+  const supplierStore = await order.getToStore();
+
+  // Notify requester of quantity change
+  const requesterUsers = await User.findAll({
+    where: { store_id: requesterStore?.id },
+  });
+
+  await createBulkNotifications(requesterUsers.map(user => ({
+    userId: user.id,
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.SUPPLIER_CHANGED_QUANTITY,
+    title: 'Quantity Changed',
+    message: `${supplierStore?.name || 'Supplier'} changed ${itemName} quantity from ${oldQty} → ${newQty}`,
+    type: NOTIF_TYPES.DISCREPANCY,
+    severity: newQty < oldQty ? SEVERITY.HIGH : SEVERITY.MEDIUM,
+    sourceStore: { id: supplierStore?.id, name: supplierStore?.name },
+    targetStore: { id: requesterStore?.id, name: requesterStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  })));
+}
+
+async function onOrderShipped(order, actorUser) {
+  const requesterStore = await order.getFromStore();
+  const supplierStore = await order.getToStore();
+
+  // Notify requester of shipment
+  const requesterUsers = await User.findAll({
+    where: { store_id: requesterStore?.id },
+  });
+
+  await createBulkNotifications(requesterUsers.map(user => ({
+    userId: user.id,
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.ORDER_SHIPPED,
+    title: 'Order Shipped',
+    message: `${supplierStore?.name || 'Supplier'} shipped Order #${order.order_number || order.id}`,
+    type: NOTIF_TYPES.SHIPMENT,
+    severity: SEVERITY.MEDIUM,
+    sourceStore: { id: supplierStore?.id, name: supplierStore?.name },
+    targetStore: { id: requesterStore?.id, name: requesterStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  })));
+}
+
+async function onDiscrepancyDetected(order, itemName, expectedQty, actualQty, actorUser) {
+  const requesterStore = await order.getFromStore();
+  const supplierStore = await order.getToStore();
+
+  // Notify supplier of receiving discrepancy
+  const supplierUsers = await User.findAll({
+    where: { store_id: supplierStore?.id },
+  });
+
+  await createBulkNotifications(supplierUsers.map(user => ({
+    userId: user.id,
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.DISCREPANCY_DETECTED,
+    title: 'Receiving Discrepancy',
+    message: `Discrepancy detected for ${itemName}: expected ${expectedQty}, received ${actualQty}`,
+    type: NOTIF_TYPES.DISCREPANCY,
+    severity: SEVERITY.HIGH,
+    sourceStore: { id: requesterStore?.id, name: requesterStore?.name },
+    targetStore: { id: supplierStore?.id, name: supplierStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  })));
+
+  // Alert admins
+  await notifyAdmins({
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.DISCREPANCY_DETECTED,
+    title: 'Discrepancy Alert',
+    message: `Receiving discrepancy for Order #${order.order_number || order.id}: ${itemName} (expected: ${expectedQty}, actual: ${actualQty})`,
+    type: NOTIF_TYPES.DISCREPANCY,
+    severity: SEVERITY.CRITICAL,
+    sourceStore: { id: requesterStore?.id, name: requesterStore?.name },
+    targetStore: { id: supplierStore?.id, name: supplierStore?.name },
+  });
+}
+
+async function onOrderCompleted(order, actorUser) {
+  const requesterStore = await order.getFromStore();
+  const supplierStore = await order.getToStore();
+
+  // Notify supplier of completion
+  const supplierUsers = await User.findAll({
+    where: { store_id: supplierStore?.id },
+  });
+
+  await createBulkNotifications(supplierUsers.map(user => ({
+    userId: user.id,
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.ORDER_COMPLETED,
+    title: 'Order Completed',
+    message: `Order #${order.order_number || order.id} has been completed`,
+    type: NOTIF_TYPES.ORDER,
+    severity: SEVERITY.LOW,
+    sourceStore: { id: requesterStore?.id, name: requesterStore?.name },
+    targetStore: { id: supplierStore?.id, name: supplierStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  })));
+}
+
+async function onOrderDelayed(order, reason, actorUser) {
+  const requesterStore = await order.getFromStore();
+  const supplierStore = await order.getToStore();
+
+  // Notify requester
+  const requesterUsers = await User.findAll({
+    where: { store_id: requesterStore?.id },
+  });
+
+  await createBulkNotifications(requesterUsers.map(user => ({
+    userId: user.id,
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.ORDER_DELAYED,
+    title: 'Order Delayed',
+    message: `Order #${order.order_number || order.id} is delayed: ${reason}`,
+    type: NOTIF_TYPES.ALERT,
+    severity: SEVERITY.HIGH,
+    sourceStore: { id: supplierStore?.id, name: supplierStore?.name },
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  })));
+
+  // Alert admins
+  await notifyAdmins({
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.ORDER_DELAYED,
+    title: 'Delayed Order Alert',
+    message: `Order #${order.order_number || order.id} is delayed: ${reason}`,
+    type: NOTIF_TYPES.ALERT,
+    severity: SEVERITY.HIGH,
+  });
+}
+
+async function onAdminOverride(order, reason, actorUser) {
+  // Alert admins and relevant stores
+  await notifyAdmins({
+    orderId: order.id,
+    orderNumber: order.order_number || `ORD-${order.id}`,
+    eventType: EVENT_TYPES.ADMIN_OVERRIDE,
+    title: 'Admin Override',
+    message: `Admin ${actorUser?.full_name || 'Admin'} overrode order #${order.order_number || order.id}: ${reason}`,
+    type: NOTIF_TYPES.ALERT,
+    severity: SEVERITY.CRITICAL,
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  });
+}
+
+/**
+ * Handle order status change notification
+ * Called from OrderService after each state transition
+ */
+async function notifyOrderStatusChange(order, newStatus, userId) {
+  const actorUser = { id: userId, full_name: 'System' };
+  
+  try {
+    const User = require('../models').User;
+    const user = await User.findByPk(userId);
+    if (user) {
+      actorUser.full_name = user.full_name;
+    }
+  } catch (e) {
+    // Ignore - use default actor name
+  }
+
+  const fromStore = await order.getFromStore();
+  const toStore = await order.getToStore();
+
+  const base = {
+    orderId: order.id,
+    orderNumber: order.order_number,
+    type: NOTIF_TYPES.ORDER,
+    actorUser,
+    deepLinkUrl: `/orders/${order.id}`,
+  };
+
+  switch (newStatus) {
+    case 'submitted':
+    case 'supplier_reviewing':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_REVIEWING,
+        title: 'New Order Request',
+        message: `${toStore?.name || 'Destination store'} requested items from ${fromStore?.name || 'source store'}. Please review and accept or reject.`,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+        metadata: { actionRequiredByStoreId: fromStore?.id },
+      });
+      await notifyAdmins({
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_REVIEWING,
+        title: 'Order Waiting for Supplier Review',
+        message: `Order #${order.order_number} is waiting for ${fromStore?.name || 'source store'} to review.`,
+        severity: SEVERITY.LOW,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      break;
+
+    case 'supplier_accepted':
+      await notifyStore(toStore?.id, toStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_ACCEPTED,
+        title: 'Order Accepted',
+        message: `${fromStore?.name || 'Source store'} accepted Order #${order.order_number}.`,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
+
+    case 'supplier_rejected':
+      await notifyStore(toStore?.id, toStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_REJECTED,
+        title: 'Order Rejected',
+        message: `${fromStore?.name || 'Source store'} rejected Order #${order.order_number}.`,
+        type: NOTIF_TYPES.ALERT,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      await notifyAdmins({
+        ...base,
+        eventType: EVENT_TYPES.SUPPLIER_REJECTED,
+        title: 'Order Rejected',
+        message: `Order #${order.order_number} was rejected by ${fromStore?.name || 'source store'}.`,
+        type: NOTIF_TYPES.ALERT,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
+
+    case 'preparing':
+      await notifyStore(toStore?.id, toStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.PREPARING_STARTED,
+        title: 'Order Preparing',
+        message: `${fromStore?.name || 'Source store'} started preparing Order #${order.order_number}.`,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
+
+    case 'shipping':
+    case 'in_transit':
+    case 'shipped':
+      await notifyStore(toStore?.id, toStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.ORDER_SHIPPED,
+        title: 'Incoming Shipment',
+        message: `Order #${order.order_number} is on the way from ${fromStore?.name || 'source store'}.`,
+        type: NOTIF_TYPES.SHIPMENT,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
+
+    case 'receiving_review':
+    case 'received':
+    case 'received_pending_confirmation':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.ORDER_RECEIVED,
+        title: 'Order Received',
+        message: `${toStore?.name || 'Destination store'} received Order #${order.order_number}.`,
+        type: NOTIF_TYPES.SHIPMENT,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      break;
+
+    case 'discrepancy_review':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.DISCREPANCY_DETECTED,
+        title: 'Receiving Discrepancy',
+        message: `${toStore?.name || 'Destination store'} reported a discrepancy on Order #${order.order_number}.`,
+        type: NOTIF_TYPES.DISCREPANCY,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      await notifyAdmins({
+        ...base,
+        eventType: EVENT_TYPES.DISCREPANCY_DETECTED,
+        title: 'Discrepancy Alert',
+        message: `Order #${order.order_number} has a receiving discrepancy.`,
+        type: NOTIF_TYPES.DISCREPANCY,
+        severity: SEVERITY.CRITICAL,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      break;
+
+    case 'completed':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.ORDER_COMPLETED,
+        title: 'Order Completed',
+        message: `Order #${order.order_number} has been completed.`,
+        severity: SEVERITY.LOW,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      if (fromStore?.id !== toStore?.id) {
+        await notifyStore(toStore?.id, toStore?.name, {
+          ...base,
+          eventType: EVENT_TYPES.ORDER_COMPLETED,
+          title: 'Order Completed',
+          message: `Order #${order.order_number} has been completed.`,
+          severity: SEVERITY.LOW,
+          sourceStore: { id: fromStore?.id, name: fromStore?.name },
+          targetStore: { id: toStore?.id, name: toStore?.name },
+        });
+      }
+      await notifyAdmins({
+        ...base,
+        eventType: EVENT_TYPES.ORDER_COMPLETED,
+        title: 'Order Completed',
+        message: `Order #${order.order_number} has been completed.`,
+        severity: SEVERITY.LOW,
+        sourceStore: { id: fromStore?.id, name: fromStore?.name },
+        targetStore: { id: toStore?.id, name: toStore?.name },
+      });
+      break;
+
+    case 'cancelled':
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: EVENT_TYPES.ORDER_CANCELLED,
+        title: 'Order Cancelled',
+        message: `Order #${order.order_number} has been cancelled.`,
+        type: NOTIF_TYPES.ALERT,
+        severity: SEVERITY.HIGH,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      if (fromStore?.id !== toStore?.id) {
+        await notifyStore(toStore?.id, toStore?.name, {
+          ...base,
+          eventType: EVENT_TYPES.ORDER_CANCELLED,
+          title: 'Order Cancelled',
+          message: `Order #${order.order_number} has been cancelled.`,
+          type: NOTIF_TYPES.ALERT,
+          severity: SEVERITY.HIGH,
+          sourceStore: { id: fromStore?.id, name: fromStore?.name },
+          targetStore: { id: toStore?.id, name: toStore?.name },
+        });
+      }
+      break;
+
+    default:
+      await notifyStore(fromStore?.id, fromStore?.name, {
+        ...base,
+        eventType: `order_${newStatus}`,
+        title: 'Order Updated',
+        message: `Order #${order.order_number} changed to ${newStatus}.`,
+        severity: SEVERITY.MEDIUM,
+        sourceStore: { id: toStore?.id, name: toStore?.name },
+        targetStore: { id: fromStore?.id, name: fromStore?.name },
+      });
+      break;
+  }
+}
+
+/**
+ * Get unread count for a user
+ */
+async function getUnreadCount(userId) {
+  return Notification.count({
+    where: {
+      user_id: userId,
+      is_read: false,
+    },
+  });
+}
+
+/**
+ * Get notifications for a user with pagination and filtering
+ */
+async function getNotifications(userId, options = {}) {
+  const { page = 1, limit = 20, type, isRead, severity } = options;
+  const offset = (page - 1) * limit;
+
+  const where = { user_id: userId };
+  
+  if (type) {
+    where.type = type;
+  }
+  
+  if (isRead !== undefined) {
+    where.is_read = isRead === 'true' || isRead === true;
+  }
+  
+  if (severity) {
+    where.severity = severity;
+  }
+
+  const { count, rows } = await Notification.findAndCountAll({
+    where,
+    order: [['created_at', 'DESC']],
+    limit,
+    offset,
+  });
+
+  return {
+    notifications: rows,
+    total: count,
+    page,
+    totalPages: Math.ceil(count / limit),
+  };
+}
+
+/**
+ * Mark notification as read
+ */
+async function markAsRead(notificationId, userId) {
+  const notification = await Notification.findOne({
+    where: { id: notificationId, user_id: userId },
+  });
+
+  if (notification) {
+    notification.is_read = true;
+    notification.read_at = new Date();
+    await notification.save();
+  }
+
+  return notification;
+}
+
+/**
+ * Mark all notifications as read for a user
+ */
+async function markAllAsRead(userId) {
+  await Notification.update(
+    { is_read: true, read_at: new Date() },
+    { where: { user_id: userId, is_read: false } }
+  );
+}
+
+/**
+ * Delete old notifications (cleanup)
+ */
+async function cleanupOldNotifications(daysOld = 30) {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+  return Notification.destroy({
+    where: {
+      created_at: { [Op.lt]: cutoffDate },
+      is_read: true,
+    },
+  });
+}
+
+// ─── Telegram alerts (opt-in via TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID) ──────
+
 const https = require('https');
-const { Notification, User, Store } = require('../models');
 
-// ─── Event → UI type mapping ─────────────────────────────────────────────────
-const TYPE_MAP = {
-  order_created:         'order',
-  order_submitted:       'order',
-  supplier_reviewing:    'order',
-  supplier_accepted:     'order',
-  quantity_changed:      'discrepancy',
-  item_quantity_changed: 'discrepancy',
-  supplier_rejected:     'alert',
-  preparing_started:     'order',
-  order_shipped:         'shipment',
-  shipment_confirmed:    'shipment',
-  receiving_started:     'shipment',
-  discrepancy_detected:  'discrepancy',
-  order_received:        'order',
-  order_completed:       'order',
-  order_cancelled:       'alert',
-  order_delayed:         'alert',
-  admin_override:        'alert',
-};
-
-// ─── Event → Severity mapping ────────────────────────────────────────────────
-const SEVERITY_MAP = {
-  order_created:         'low',
-  order_submitted:       'medium',
-  supplier_reviewing:    'medium',
-  supplier_accepted:     'medium',
-  quantity_changed:      'high',
-  item_quantity_changed: 'high',
-  supplier_rejected:     'high',
-  preparing_started:     'low',
-  order_shipped:         'medium',
-  shipment_confirmed:    'medium',
-  receiving_started:     'medium',
-  discrepancy_detected:  'critical',
-  order_received:        'medium',
-  order_completed:       'medium',
-  order_cancelled:       'high',
-  order_delayed:         'high',
-  admin_override:        'critical',
-};
-
-// Events that also trigger Telegram alert (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID env vars)
 const TELEGRAM_EVENTS = new Set([
   'discrepancy_detected',
   'order_delayed',
@@ -52,360 +758,64 @@ const TELEGRAM_EVENTS = new Set([
   'order_cancelled',
 ]);
 
-class NotificationService {
-  // ─── Core bulk insert ───────────────────────────────────────────────────────
+function sendTelegram(text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return Promise.resolve();
 
-  static async _insertForUsers(userIds, payload) {
-    if (!userIds || userIds.length === 0) return;
-    const rows = userIds.map((uid) => ({
-      user_id: uid,
-      title: payload.title,
-      message: payload.message,
-      type: payload.type || TYPE_MAP[payload.event_type] || 'order',
-      event_type: payload.event_type || null,
-      severity: payload.severity || SEVERITY_MAP[payload.event_type] || 'medium',
-      actor_user_id: payload.actor_user_id || null,
-      source_store_id: payload.source_store_id || null,
-      target_store_id: payload.target_store_id || null,
-      reference_type: payload.reference_type || null,
-      reference_id: payload.reference_id || null,
-      metadata: payload.metadata || null,
-    }));
-    await Notification.bulkCreate(rows);
-  }
-
-  static async _getUsersForStore(storeId, excludeUserId = null) {
-    const users = await User.findAll({ where: { store_id: storeId, is_active: true } });
-    return users.filter((u) => u.id !== excludeUserId).map((u) => u.id);
-  }
-
-  static async _getAdminUserIds(excludeUserId = null) {
-    const users = await User.findAll({ where: { role: ['admin', 'accountant'], is_active: true } });
-    return users.filter((u) => u.id !== excludeUserId).map((u) => u.id);
-  }
-
-  // ─── Convenience wrappers ───────────────────────────────────────────────────
-
-  static async notifyStoreUsers(storeId, payload) {
-    const ids = await this._getUsersForStore(storeId, payload.excludeUserId);
-    return this._insertForUsers(ids, { ...payload, target_store_id: storeId });
-  }
-
-  static async notifyAdminsAndAccountants(payload) {
-    const ids = await this._getAdminUserIds(payload.excludeUserId);
-    return this._insertForUsers(ids, payload);
-  }
-
-  // ─── Main event dispatcher ──────────────────────────────────────────────────
-
-  /**
-   * Primary notification entry point.
-   * Call this after every meaningful order state change.
-   *
-   * @param {object} order       - Order instance (with fromStore/toStore included, or just ids)
-   * @param {string} eventType   - One of the EVENT_TYPES above
-   * @param {number} actorUserId - Who triggered the event
-   * @param {object} extras      - { reason, itemName, from, to } for context-rich messages
-   */
-  static async notifyOrderEvent(order, eventType, actorUserId, extras = {}) {
-    try {
-      const fromStore = order.fromStore || (await Store.findByPk(order.from_store_id));
-      const toStore = order.toStore || (await Store.findByPk(order.to_store_id));
-
-      const base = {
-        event_type:      eventType,
-        reference_type:  'order',
-        reference_id:    order.id,
-        actor_user_id:   actorUserId || null,
-        source_store_id: order.from_store_id,
-        excludeUserId:   actorUserId,
-        metadata: {
-          order_number: order.order_number,
-          deep_link_url: `/orders/${order.id}`,
-        },
-      };
-
-      switch (eventType) {
-        // ── New order → notify supplier (from_store) ──────────────────────────
-        case 'order_created':
-        case 'order_submitted':
-        case 'supplier_reviewing':
-          await this.notifyStoreUsers(order.from_store_id, {
-            ...base,
-            title: `📦 New Order Request — ${order.order_number}`,
-            message: `${toStore.code} is requesting items from ${fromStore.code}. Review and confirm quantities.`,
-          });
-          await this.notifyAdminsAndAccountants({
-            ...base,
-            title: `Order Submitted — ${order.order_number}`,
-            message: `${toStore.code} → ${fromStore.code}: new order submitted, awaiting supplier review.`,
-          });
-          break;
-
-        // ── Supplier accepted → notify requester ──────────────────────────────
-        case 'supplier_accepted':
-          await this.notifyStoreUsers(order.to_store_id, {
-            ...base,
-            title: `✅ Order Accepted — ${order.order_number}`,
-            message: `${fromStore.code} accepted your order and will start preparing shortly.`,
-          });
-          break;
-
-        // ── Quantity adjusted by supplier → notify requester ──────────────────
-        case 'quantity_changed':
-        case 'item_quantity_changed': {
-          const { itemName, from: fromQty, to: toQty } = extras;
-          await this.notifyStoreUsers(order.to_store_id, {
-            ...base,
-            event_type: 'quantity_changed',
-            title: `⚠️ Quantity Adjusted — ${order.order_number}`,
-            message: itemName
-              ? `${fromStore.code} changed ${itemName}: ${fromQty} → ${toQty}`
-              : `${fromStore.code} adjusted item quantities on order ${order.order_number}.`,
-          });
-          break;
-        }
-
-        // ── Supplier rejected → notify requester + admins ─────────────────────
-        case 'supplier_rejected':
-          await this.notifyStoreUsers(order.to_store_id, {
-            ...base,
-            title: `❌ Order Rejected — ${order.order_number}`,
-            message: `${fromStore.code} cannot fulfill order ${order.order_number}. ${extras.reason ? `Reason: ${extras.reason}.` : 'Please create a new order.'}`,
-          });
-          await this.notifyAdminsAndAccountants({
-            ...base,
-            title: `Order Rejected — ${order.order_number}`,
-            message: `${fromStore.code} rejected ${toStore.code}'s order. ${extras.reason ? `Reason: ${extras.reason}.` : ''}`,
-          });
-          break;
-
-        // ── Preparing → notify requester ──────────────────────────────────────
-        case 'preparing_started':
-          await this.notifyStoreUsers(order.to_store_id, {
-            ...base,
-            title: `🔄 Order Preparing — ${order.order_number}`,
-            message: `${fromStore.code} started packing your order.`,
-          });
-          break;
-
-        // ── Shipped → notify requester + admins ───────────────────────────────
-        case 'order_shipped':
-        case 'shipment_confirmed':
-          await this.notifyStoreUsers(order.to_store_id, {
-            ...base,
-            event_type: 'order_shipped',
-            title: `🚚 Order Shipped — ${order.order_number}`,
-            message: `${fromStore.code} shipped order ${order.order_number}. Confirm receipt when items arrive.`,
-          });
-          await this.notifyAdminsAndAccountants({
-            ...base,
-            event_type: 'order_shipped',
-            title: `Shipped — ${order.order_number}`,
-            message: `${fromStore.code} → ${toStore.code}: order is in transit.`,
-          });
-          break;
-
-        // ── Receiving started / received ──────────────────────────────────────
-        case 'receiving_started':
-        case 'order_received':
-          await this.notifyStoreUsers(order.from_store_id, {
-            ...base,
-            event_type: 'order_received',
-            title: `📬 Items Received — ${order.order_number}`,
-            message: `${toStore.code} confirmed receipt of order ${order.order_number}.`,
-          });
-          break;
-
-        // ── Discrepancy → notify admins + supplier + requester ────────────────
-        case 'discrepancy_detected':
-          await this.notifyAdminsAndAccountants({
-            ...base,
-            title: `⚠️ Discrepancy — ${order.order_number}`,
-            message: `Order ${order.order_number} (${fromStore.code} → ${toStore.code}) has quantity discrepancies that require review.`,
-          });
-          await this.notifyStoreUsers(order.from_store_id, {
-            ...base,
-            title: `⚠️ Discrepancy — ${order.order_number}`,
-            message: `${toStore.code} reported quantity differences on order ${order.order_number}. Admin review required.`,
-          });
-          await this.notifyStoreUsers(order.to_store_id, {
-            ...base,
-            title: `⚠️ Discrepancy Logged — ${order.order_number}`,
-            message: `Discrepancy recorded for order ${order.order_number}. An admin will review shortly.`,
-          });
-          break;
-
-        // ── Completed → notify both stores + admins ───────────────────────────
-        case 'order_completed':
-          await this.notifyStoreUsers(order.from_store_id, {
-            ...base,
-            title: `✔️ Completed — ${order.order_number}`,
-            message: `Order ${order.order_number} is complete. Pricing has been locked for reconciliation.`,
-          });
-          if (order.from_store_id !== order.to_store_id) {
-            await this.notifyStoreUsers(order.to_store_id, {
-              ...base,
-              title: `✔️ Completed — ${order.order_number}`,
-              message: `Order ${order.order_number} is complete. Pricing has been locked for reconciliation.`,
-            });
-          }
-          await this.notifyAdminsAndAccountants({
-            ...base,
-            title: `Completed — ${order.order_number}`,
-            message: `${fromStore.code} → ${toStore.code}: order completed and pricing locked.`,
-          });
-          break;
-
-        // ── Cancelled → notify both stores + admins ───────────────────────────
-        case 'order_cancelled':
-          await this.notifyStoreUsers(order.from_store_id, {
-            ...base,
-            title: `🚫 Cancelled — ${order.order_number}`,
-            message: `Order ${order.order_number} was cancelled. ${extras.reason ? `Reason: ${extras.reason}.` : ''}`,
-          });
-          if (order.from_store_id !== order.to_store_id) {
-            await this.notifyStoreUsers(order.to_store_id, {
-              ...base,
-              title: `🚫 Cancelled — ${order.order_number}`,
-              message: `Order ${order.order_number} was cancelled.`,
-            });
-          }
-          await this.notifyAdminsAndAccountants({
-            ...base,
-            title: `Cancelled — ${order.order_number}`,
-            message: `Order ${order.order_number} (${fromStore.code} → ${toStore.code}) was cancelled.`,
-          });
-          break;
-
-        // ── Delayed/stuck → notify admins + both stores ───────────────────────
-        case 'order_delayed':
-          await this.notifyAdminsAndAccountants({
-            ...base,
-            title: `⏰ Order Delayed — ${order.order_number}`,
-            message: `Order ${order.order_number} (${fromStore.code} → ${toStore.code}) has been inactive for over 48 hours.`,
-          });
-          await this.notifyStoreUsers(order.from_store_id, {
-            ...base,
-            title: `⏰ Delayed — ${order.order_number}`,
-            message: `Order ${order.order_number} has been waiting over 48 hours with no action.`,
-          });
-          if (order.from_store_id !== order.to_store_id) {
-            await this.notifyStoreUsers(order.to_store_id, {
-              ...base,
-              title: `⏰ Delayed — ${order.order_number}`,
-              message: `Order ${order.order_number} has been waiting over 48 hours with no action.`,
-            });
-          }
-          break;
-
-        // ── Admin override ────────────────────────────────────────────────────
-        case 'admin_override':
-          await this.notifyStoreUsers(order.from_store_id, {
-            ...base,
-            title: `🔧 Admin Override — ${order.order_number}`,
-            message: `An admin performed an override on order ${order.order_number}.`,
-          });
-          if (order.from_store_id !== order.to_store_id) {
-            await this.notifyStoreUsers(order.to_store_id, {
-              ...base,
-              title: `🔧 Admin Override — ${order.order_number}`,
-              message: `An admin performed an override on order ${order.order_number}.`,
-            });
-          }
-          break;
-
-        // ── Fallback ──────────────────────────────────────────────────────────
-        default:
-          await this.notifyStoreUsers(order.from_store_id, {
-            ...base,
-            title: `Order Update — ${order.order_number}`,
-            message: `Order status changed to: ${eventType}.`,
-          });
-          if (order.from_store_id !== order.to_store_id) {
-            await this.notifyStoreUsers(order.to_store_id, {
-              ...base,
-              title: `Order Update — ${order.order_number}`,
-              message: `Order status changed to: ${eventType}.`,
-            });
-          }
-      }
-
-      // Optional Telegram alert for high-priority events
-      if (TELEGRAM_EVENTS.has(eventType) && process.env.TELEGRAM_BOT_TOKEN) {
-        const icon = eventType === 'discrepancy_detected' ? '⚠️'
-          : eventType === 'order_delayed'    ? '⏰'
-          : eventType === 'admin_override'   ? '🔧'
-          : eventType === 'supplier_rejected' ? '❌'
-          : '🚫';
-        this._sendTelegram(
-          `${icon} *[${eventType.replace(/_/g, ' ').toUpperCase()}]*\n` +
-          `Order: \`${order.order_number}\`\n` +
-          `Route: ${fromStore?.code} → ${toStore?.code}`
-        ).catch(() => {});
-      }
-    } catch (err) {
-      console.error(`[NotificationService] notifyOrderEvent error [${eventType}]:`, err.message);
-    }
-  }
-
-  // ─── Backward-compat wrapper ────────────────────────────────────────────────
-
-  static async notifyOrderStatusChange(order, newStatus, userId) {
-    const STATUS_TO_EVENT = {
-      draft:                        'order_created',
-      submitted:                    'order_submitted',
-      supplier_reviewing:           'supplier_reviewing',
-      supplier_accepted:            'supplier_accepted',
-      supplier_rejected:            'supplier_rejected',
-      preparing:                    'preparing_started',
-      processing:                   'preparing_started',
-      shipping:                     'order_shipped',
-      in_transit:                   'order_shipped',
-      ready_to_ship:                'order_shipped',
-      receiving_review:             'order_received',
-      received:                     'order_received',
-      received_pending_confirmation:'order_received',
-      discrepancy_review:           'discrepancy_detected',
-      completed:                    'order_completed',
-      cancelled:                    'order_cancelled',
-    };
-    const eventType = STATUS_TO_EVENT[newStatus] || newStatus;
-    return this.notifyOrderEvent(order, eventType, userId);
-  }
-
-  // ─── Unread count ───────────────────────────────────────────────────────────
-
-  static async getUnreadCount(userId) {
-    return Notification.count({ where: { user_id: userId, is_read: false } });
-  }
-
-  // ─── Telegram ───────────────────────────────────────────────────────────────
-
-  static _sendTelegram(text) {
-    return new Promise((resolve, reject) => {
-      const token = process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = process.env.TELEGRAM_CHAT_ID;
-      if (!token || !chatId) return resolve();
-
-      const body = JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' });
-      const req = https.request(
-        {
-          hostname: 'api.telegram.org',
-          path: `/bot${token}/sendMessage`,
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-        },
-        (res) => {
-          res.resume();
-          res.on('end', resolve);
-        }
-      );
-      req.on('error', reject);
-      req.write(body);
-      req.end();
-    });
-  }
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' });
+    const req = https.request(
+      {
+        hostname: 'api.telegram.org',
+        path: `/bot${token}/sendMessage`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      },
+      (res) => { res.resume(); res.on('end', resolve); }
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
 }
 
-module.exports = NotificationService;
+/**
+ * Fire a Telegram message for high-priority order events.
+ * Called non-blocking (.catch ignored) after notifyOrderStatusChange.
+ */
+function maybeSendTelegram(eventType, orderNumber, fromStoreName, toStoreName) {
+  if (!TELEGRAM_EVENTS.has(eventType)) return;
+  const icons = { discrepancy_detected: '⚠️', order_delayed: '⏰', admin_override: '🔧', supplier_rejected: '❌', order_cancelled: '🚫' };
+  const icon = icons[eventType] || '🔔';
+  sendTelegram(`${icon} *[${eventType.replace(/_/g, ' ').toUpperCase()}]*\nOrder: \`${orderNumber}\`\nRoute: ${fromStoreName} → ${toStoreName}`)
+    .catch(() => {});
+}
+
+module.exports = {
+  EVENT_TYPES,
+  NOTIF_TYPES,
+  SEVERITY,
+  setEmitFunction,
+  createNotification,
+  createBulkNotifications,
+  notifyStore,
+  notifyAdmins,
+  onOrderCreated,
+  onSupplierAccepted,
+  onSupplierRejected,
+  onQuantityChanged,
+  onOrderShipped,
+  onDiscrepancyDetected,
+  onOrderCompleted,
+  onOrderDelayed,
+  onAdminOverride,
+  notifyOrderStatusChange,
+  getUnreadCount,
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+  cleanupOldNotifications,
+  sendTelegram,
+  maybeSendTelegram,
+};

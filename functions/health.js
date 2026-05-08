@@ -5,11 +5,18 @@
  * health check endpoint that proxies to the API server via tunnel.
  */
 
-const TUNNEL_BASE = 'https://5c313804-9d8d-42ef-9fa9-90c4d814718f.cfargotunnel.com';
+const TUNNEL_BASE = 'https://api.rawsushibar.com';
 
 export async function onRequest() {
   try {
-    return await fetch(`${TUNNEL_BASE}/health`);
+    const resp = await fetch(`${TUNNEL_BASE}/health`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+    return new Response(resp.body, {
+      status: resp.status,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (err) {
     return new Response(
       JSON.stringify({ status: 'error', detail: err.message }),

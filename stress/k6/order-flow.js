@@ -69,7 +69,7 @@ export default function () {
       from_store_id: pair.from,
       to_store_id:   pair.to,
       notes:         uniqueNote('flow'),
-      lines:         [{ item_id: itemId, requested_qty: Math.floor(Math.random() * 20) + 1 }],
+      lines:         [{ item_id: itemId, quantity: Math.floor(Math.random() * 20) + 1 }],
     }),
     { headers: jsonHeaders(token) }
   );
