@@ -20,8 +20,28 @@ const Notification = sequelize.define('Notification', {
     allowNull: false,
   },
   type: {
-    type: DataTypes.ENUM('order', 'invoice', 'system', 'alert'),
+    type: DataTypes.ENUM('order', 'invoice', 'system', 'alert', 'discrepancy', 'shipment'),
     defaultValue: 'order',
+  },
+  event_type: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
+  severity: {
+    type: DataTypes.ENUM('low', 'medium', 'high', 'critical'),
+    defaultValue: 'medium',
+  },
+  actor_user_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  source_store_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  target_store_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
   },
   reference_type: {
     type: DataTypes.STRING(50),
@@ -29,6 +49,10 @@ const Notification = sequelize.define('Notification', {
   },
   reference_id: {
     type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  metadata: {
+    type: DataTypes.JSON,
     allowNull: true,
   },
   is_read: {

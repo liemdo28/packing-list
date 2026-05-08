@@ -36,9 +36,12 @@ Order.hasMany(OrderLine, { foreignKey: 'order_id', as: 'lines' });
 OrderLine.belongsTo(Order, { foreignKey: 'order_id', as: 'order' });
 OrderLine.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
 
-// Notification <-> User
+// Notification <-> User / Store
 User.hasMany(Notification, { foreignKey: 'user_id', as: 'notifications' });
 Notification.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+Notification.belongsTo(User, { foreignKey: 'actor_user_id', as: 'actorUser' });
+Notification.belongsTo(Store, { foreignKey: 'source_store_id', as: 'sourceStore' });
+Notification.belongsTo(Store, { foreignKey: 'target_store_id', as: 'targetStore' });
 
 // Invoice <-> Store
 Invoice.belongsTo(Store, { foreignKey: 'paid_by_store_id', as: 'paidByStore' });
